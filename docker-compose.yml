@@ -1,0 +1,14 @@
+services:
+  fieldconnect:
+    build: .
+    image: fieldconnect:latest
+    container_name: fieldconnect
+    ports:
+      - "8080:80"
+    restart: unless-stopped
+    # Resource limits suitable for a static SPA
+    deploy:
+      resources:
+        limits:
+          cpus: "0.50"
+          memory: 128M
