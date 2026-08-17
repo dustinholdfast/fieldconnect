@@ -14,6 +14,37 @@ export const PERSON_FIELDS = [
 
 export const PERSON_FIELD_VALUES = new Set(PERSON_FIELDS.map((f) => f.value));
 
+export const TEMPLATE_COLUMNS = [
+  'first_name',
+  'last_name',
+  'email',
+  'phone',
+  'postal_code',
+  'source_notes',
+  'tag',
+];
+
+export const TEMPLATE_FILENAME = 'fieldconnect-import-template.csv';
+
+export function csvCell(value) {
+  const s = value == null ? '' : String(value);
+  if (/[",\n\r]/.test(s)) return `"${s.replace(/"/g, '""')}"`;
+  return s;
+}
+
+export function renderImportTemplateCsv() {
+  const sample = [
+    'Alex',
+    'Example',
+    'alex.example@example.test',
+    '555-0100',
+    '55403',
+    'Met at open house',
+    'DN book',
+  ];
+  return `${TEMPLATE_COLUMNS.map(csvCell).join(',')}\n${sample.map(csvCell).join(',')}\n`;
+}
+
 const HEADER_ALIASES = [
   [/^e-?mails?$/i, 'email'],
   [/^email[_\s-]?address$/i, 'email'],

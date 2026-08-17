@@ -12,7 +12,9 @@ import {
   mappingHasEmail,
   normalizeMapping,
   phoneKey,
+  renderImportTemplateCsv,
   suggestMapping,
+  TEMPLATE_FILENAME,
 } from '../../shared/import/mapping.js';
 
 const STATUS_LABELS = {
@@ -382,6 +384,14 @@ export async function registerImportRoutes(app) {
       `SELECT * FROM imports WHERE org_id = ? ORDER BY uploaded_at DESC, id DESC`,
     );
     return { items: rows.map(listItem) };
+  });
+
+  app.get('/api/imports/template', async (_request, reply) => {
+    const csv = renderImportTemplateCsv();
+    return reply
+      .header('content-type', 'text/csv; charset=utf-8')
+      .header('content-disposition', `attachment; filename="${TEMPLATE_FILENAME}"`)
+      .send(csv);
   });
 
   app.get('/api/imports/:id', async (request, reply) => {

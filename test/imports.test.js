@@ -116,6 +116,37 @@ async function readyImport(app, session, csv, filename = 'batch.csv') {
   return { id, upload: uploaded.json(), stats: validated.json().stats };
 }
 
+test('import template downloads and uploads with auto-mapping', async (t) => {
+  const app = await seededApp(t);
+  const host = await loginAs(app, 'host@twincities.example', 'demo-host-2026');
+  const tmpl = await app.inject({
+    method: 'GET',
+    url: '/api/imports/template',
+    headers: { cookie: host.cookie },
+  });
+  assert.equal(tmpl.statusCode, 200);
+  assert.match(String(tmpl.headers['content-type'] || ''), /text\/csv/);
+  assert.match(String(tmpl.headers['content-disposition'] || ''), /fieldconnect-import-template\.csv/);
+  const csv = tmpl.body;
+  assert.match(csv, /first_name,last_name,email,phone,postal_code,source_notes,tag/);
+  assert.match(csv, /alex\.example@example\.test/);
+
+  const uploaded = await uploadCsv(app, host, 'fieldconnect-import-template.csv', csv);
+  assert.equal(uploaded.statusCode, 201, uploaded.body);
+  const mapping = uploaded.json().mapping;
+  assert.equal(mapping.first_name, 'first_name');
+  assert.equal(mapping.last_name, 'last_name');
+  assert.equal(mapping.email, 'email');
+  assert.equal(mapping.phone, 'phone');
+  assert.equal(mapping.postal_code, 'postal_code');
+  assert.equal(mapping.source_notes, 'source_notes');
+  assert.equal(mapping.tag, 'tag');
+
+  const { stats } = await readyImport(app, host, csv, 'from-template.csv');
+  assert.equal(stats.valid, 1);
+  assert.equal(stats.rejected, 0);
+});
+
 test('GET /api/imports returns seeded history', async (t) => {
   const app = await seededApp(t);
   const host = await loginAs(app, 'host@twincities.example', 'demo-host-2026');
@@ -303,6 +334,7 @@ test('FSM 403 on all import routes', async (t) => {
 
   const routes = [
     { method: 'GET', url: '/api/imports' },
+    { method: 'GET', url: '/api/imports/template' },
     { method: 'POST', url: '/api/imports', headers: part.headers, payload: part.payload },
     { method: 'GET', url: '/api/imports/' + id },
     { method: 'PATCH', url: '/api/imports/' + id, payload: { sourceLabel: 'nope' } },

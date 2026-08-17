@@ -49,6 +49,7 @@ export const ROUTE_ROLES = [
   { method: 'POST', path: '/api/outcomes', fsm: 'own', manager: false, admin: false },
   { method: 'GET', path: '/api/outcomes/:id', fsm: 'own', manager: false, admin: true },
   { method: 'GET', path: '/api/imports', fsm: false, manager: true, admin: true },
+  { method: 'GET', path: '/api/imports/template', fsm: false, manager: true, admin: true },
   { method: 'POST', path: '/api/imports', fsm: false, manager: true, admin: true },
   { method: 'GET', path: '/api/imports/:id', fsm: false, manager: true, admin: true },
   { method: 'PATCH', path: '/api/imports/:id', fsm: false, manager: true, admin: true },

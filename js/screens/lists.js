@@ -118,7 +118,11 @@ function wizardStep1() {
     '<input id="import-file" type="file" accept=".csv,text/csv" hidden />' +
     msg +
     '</div>' +
-    '<button class="btn btn-primary" id="choose-csv" type="button">Choose CSV</button>';
+    '<div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center">' +
+    '<button class="btn btn-primary" id="choose-csv" type="button">Choose CSV</button>' +
+    '<a class="btn btn-secondary" href="/api/imports/template" download="fieldconnect-import-template.csv">Download template</a>' +
+    '</div>' +
+    '<p class="text-muted" style="font-size:12.5px;margin-top:12px">The template columns map automatically: first name, last name, email (match key), phone, postal code, notes, and tag. Replace the sample row before upload.</p>';
 }
 
 function wizardStep2(imp) {
