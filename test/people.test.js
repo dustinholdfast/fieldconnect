@@ -386,3 +386,41 @@ test('FSM cannot merge', async (t) => {
   assert.equal(res.statusCode, 403);
   assert.deepEqual(res.json(), { error: { code: 'forbidden' } });
 });
+
+test('PATCH without fsmUserId keeps an inactive-FSM assignment', async (t) => {
+  const app = await seededApp(t);
+  const host = await loginAs(app, 'host@twincities.example', 'demo-host-2026');
+  const priya = personByName(app, 'Priya Raman');
+  const lindgren = app.db.prepare(
+    "SELECT id, active FROM users WHERE email = 'lindgren@twincities.example'",
+  ).get();
+  assert.equal(lindgren.active, 0);
+  const before = await app.inject({
+    method: 'GET',
+    url: '/api/people/' + priya.id,
+    headers: { cookie: host.cookie },
+  });
+  assert.equal(before.statusCode, 200);
+  assert.equal(before.json().fsmUserId, lindgren.id);
+  assert.equal(before.json().fsm, 'S. Lindgren');
+
+  const patched = await app.inject({
+    method: 'PATCH',
+    url: '/api/people/' + priya.id,
+    headers: { cookie: host.cookie, 'x-csrf-token': host.csrf },
+    payload: { postalCode: '55401' },
+  });
+  assert.equal(patched.statusCode, 200);
+  assert.equal(patched.json().postalCode, '55401');
+  assert.equal(patched.json().fsmUserId, lindgren.id);
+  assert.equal(patched.json().fsm, 'S. Lindgren');
+
+  const keep = await app.inject({
+    method: 'PATCH',
+    url: '/api/people/' + priya.id,
+    headers: { cookie: host.cookie, 'x-csrf-token': host.csrf },
+    payload: { firstName: 'Priya', fsmUserId: lindgren.id },
+  });
+  assert.equal(keep.statusCode, 200);
+  assert.equal(keep.json().fsmUserId, lindgren.id);
+});

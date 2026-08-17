@@ -166,11 +166,25 @@ function optionsHtml(values, selected, blank) {
   return html;
 }
 
-function fsmOptions(selected) {
-  let html = '<option value="">—</option>';
+function fsmOptions(selected, current) {
+  const selectedId = selected != null && selected !== '' ? Number(selected) : null;
+  const seen = new Set();
+  const rows = [];
   (state.crmFsms || []).forEach((f) => {
-    html += '<option value="' + f.id + '"' + (Number(selected) === f.id ? ' selected' : '') + '>' +
-      esc(f.displayName) + '</option>';
+    if (seen.has(f.id)) return;
+    seen.add(f.id);
+    rows.push({ id: f.id, displayName: f.displayName, active: f.active !== false });
+  });
+  // Seed assigns heroes to inactive FSMs (Lindgren / Okonjo); keep that option so Edit does not snap to "—".
+  if (selectedId && !seen.has(selectedId)) {
+    const name = current?.displayName || current?.fsm || 'Assigned FSM';
+    rows.push({ id: selectedId, displayName: name, active: false });
+  }
+  let html = '<option value="">—</option>';
+  rows.forEach((f) => {
+    const label = f.active ? f.displayName : f.displayName + ' (inactive)';
+    html += '<option value="' + f.id + '"' + (selectedId === f.id ? ' selected' : '') + '>' +
+      esc(label) + '</option>';
   });
   return html;
 }
@@ -262,7 +276,12 @@ async function loadList(el, route, signal) {
     setState({ crmPeople: data.items || [], crmTotal: data.total || 0, crmFsms: data.fsms || [] });
     refreshCrmList(el, route);
     const fsm = el.querySelector('#crm-f-fsmUserId');
-    if (fsm && document.activeElement !== fsm) fsm.innerHTML = fsmOptions(fsm.value);
+    if (fsm && document.activeElement !== fsm) {
+      const selectedLabel = fsm.selectedOptions[0]?.textContent || '';
+      fsm.innerHTML = fsmOptions(fsm.value, {
+        displayName: selectedLabel.replace(/\s*\(inactive\)\s*$/, ''),
+      });
+    }
   } catch {
     if (signal?.aborted) return;
   }
@@ -297,6 +316,7 @@ function openDrawer(el, mode, person) {
   if (!drawer || !form) return;
   form.dataset.mode = mode;
   form.dataset.id = person ? String(person.id) : '';
+  form.dataset.fsmUserId = person?.fsmUserId != null ? String(person.fsmUserId) : '';
   title.textContent = mode === 'edit' ? 'Edit contact' : 'New contact';
   form.firstName.value = person?.firstName || '';
   form.lastName.value = person?.lastName || '';
@@ -307,7 +327,7 @@ function openDrawer(el, mode, person) {
   form.stage.value = person?.stage && PERSON_STAGES.includes(person.stage) ? person.stage : 'Registered';
   form.ruinCategory.value = person?.ruinCategory || '';
   if (fsmField) {
-    fsmField.innerHTML = fsmOptions(person?.fsmUserId);
+    fsmField.innerHTML = fsmOptions(person?.fsmUserId, person);
     fsmField.disabled = state.role === 'fsm';
     const wrap = fsmField.closest('.fc-field');
     if (wrap) wrap.classList.toggle('hidden', state.role === 'fsm');
@@ -398,7 +418,14 @@ function readForm(form) {
   };
   if (state.role !== 'fsm') {
     const raw = form.fsmUserId.value;
-    data.fsmUserId = raw ? Number(raw) : null;
+    const next = raw ? Number(raw) : null;
+    if (form.dataset.mode === 'edit') {
+      const prev = form.dataset.fsmUserId ? Number(form.dataset.fsmUserId) : null;
+      // Omit unless changed so a missing inactive-FSM option cannot unassign on Save.
+      if (next !== prev) data.fsmUserId = next;
+    } else if (next != null) {
+      data.fsmUserId = next;
+    }
   }
   return data;
 }

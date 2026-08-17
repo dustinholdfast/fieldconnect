@@ -357,12 +357,16 @@ function uniqueConflict(err) {
   return err && (err.code === 'SQLITE_CONSTRAINT_UNIQUE' || /UNIQUE/i.test(String(err.message)));
 }
 
-function resolveFsmUser(org, fsmUserId) {
+function resolveFsmUser(org, fsmUserId, { allowInactiveId } = {}) {
   if (fsmUserId == null) return null;
-  return org.get(
-    `SELECT id FROM users WHERE org_id = ? AND id = ? AND role = 'fsm' AND active = 1`,
+  const row = org.get(
+    `SELECT id, active FROM users WHERE org_id = ? AND id = ? AND role = 'fsm'`,
     [fsmUserId],
   );
+  if (!row) return null;
+  if (row.active) return row;
+  if (allowInactiveId != null && row.id === allowInactiveId) return row;
+  return null;
 }
 
 function setFsmAssignment(db, orgId, personId, fsmUserId, at) {
@@ -631,8 +635,9 @@ export async function registerPeopleRoutes(app) {
     if (Object.keys(fields).length) {
       return sendError(reply, 400, 'validation_failed', { fields });
     }
+    const extras = personExtras(org, id);
     if (session.role !== 'fsm' && value.fsmUserId !== undefined && value.fsmUserId != null) {
-      if (!resolveFsmUser(org, value.fsmUserId)) {
+      if (!resolveFsmUser(org, value.fsmUserId, { allowInactiveId: extras.fsmUserId })) {
         return sendError(reply, 400, 'validation_failed', { fields: { fsmUserId: 'Unknown FSM' } });
       }
     }
