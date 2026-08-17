@@ -1,8 +1,9 @@
 import { randomBytes } from 'node:crypto';
 import { write as writeAudit } from '../audit.js';
-import { nowIso, shiftIso } from '../clock.js';
+import { now, nowIso, shiftIso } from '../clock.js';
 import { withOrg } from '../db.js';
 import { mergePeople } from '../people/merge.js';
+import { isFollowupPastDue } from './dashboard.js';
 
 const STAGES = new Set([
   'Registered', 'Attended', 'Scheduled', 'Completed', 'No-show', 'Interested', 'Not a fit',
@@ -180,7 +181,23 @@ function listFsms(org) {
   );
 }
 
-function buildListQuery(session, query, nowAt) {
+function overdueFollowupPersonIds(org, session, nowDate) {
+  const params = [];
+  let sql = `SELECT person_id, kind, status, due_at
+               FROM assignments
+              WHERE org_id = ? AND kind = 'follow_up' AND status = 'open'`;
+  if (session.role === 'fsm') {
+    sql += ' AND user_id = ?';
+    params.push(session.userId);
+  }
+  const ids = new Set();
+  for (const row of org.all(sql, params)) {
+    if (isFollowupPastDue(row, nowDate)) ids.add(row.person_id);
+  }
+  return [...ids];
+}
+
+function buildListQuery(session, query, extra = {}) {
   const clauses = ['p.org_id = ?', 'p.merged_into_id IS NULL'];
   const params = [];
 
@@ -237,13 +254,13 @@ function buildListQuery(session, query, nowAt) {
   if (filter === 'no_lawful_basis') {
     clauses.push('p.suppressed = 0 AND p.lawful_basis IS NULL');
   } else if (filter === 'followup_overdue') {
-    clauses.push(`EXISTS (
-      SELECT 1 FROM assignments fu
-       WHERE fu.org_id = p.org_id AND fu.person_id = p.id
-         AND fu.kind = 'follow_up' AND fu.status = 'open'
-         AND fu.due_at IS NOT NULL AND fu.due_at < ?
-    )`);
-    params.push(nowAt);
+    const ids = extra.overdueFollowupIds || [];
+    if (!ids.length) {
+      clauses.push('1 = 0');
+    } else {
+      clauses.push(`p.id IN (${ids.map(() => '?').join(', ')})`);
+      params.push(...ids);
+    }
   }
 
   const q = typeof query.q === 'string' ? query.q.trim() : '';
@@ -457,7 +474,12 @@ export async function registerPeopleRoutes(app) {
   app.get('/api/people', async (request) => {
     const session = request.fcSession;
     const org = withOrg(app.db, session.orgId);
-    const { where, params } = buildListQuery(session, request.query || {}, nowIso(app.db));
+    const query = request.query || {};
+    const extra = {};
+    if (query.filter === 'followup_overdue') {
+      extra.overdueFollowupIds = overdueFollowupPersonIds(org, session, now(app.db));
+    }
+    const { where, params } = buildListQuery(session, query, extra);
     const limit = clampLimit(request.query?.limit);
     const offset = clampOffset(request.query?.offset);
     const total = org.get(

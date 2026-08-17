@@ -107,6 +107,8 @@ test('FSM attention links only open own rows', async (t) => {
   const ada = personByName(app, 'Ada Pencilton');
   const orgId = twinId(app);
 
+  const karen = personByName(app, 'Karen Iversen');
+  const tom = personByName(app, 'Tom Fitzgerald');
   app.db.prepare(`
     INSERT INTO appointments (
       org_id, person_id, fsm_user_id, start_at, timezone, duration_min, status, created_at
@@ -114,6 +116,12 @@ test('FSM attention links only open own rows', async (t) => {
       (?, ?, ?, '2026-08-27T16:00:00-05:00', 'America/Chicago', 45, 'Booked', ?),
       (?, ?, ?, '2026-08-24T11:00:00-05:00', 'America/Chicago', 45, 'Confirmed', ?)
   `).run(orgId, ada.id, lindgren.id, DEMO_CLOCK, orgId, ada.id, lindgren.id, DEMO_CLOCK);
+  app.db.prepare(`
+    INSERT INTO assignments (org_id, person_id, user_id, kind, status, due_at, created_at)
+    VALUES
+      (?, ?, ?, 'follow_up', 'open', '2026-08-26T09:00:00-05:00', ?),
+      (?, ?, ?, 'follow_up', 'open', '2026-08-26T09:00:00-05:00', ?)
+  `).run(orgId, karen.id, whitfield.id, DEMO_CLOCK, orgId, tom.id, lindgren.id, DEMO_CLOCK);
 
   const manager = await app.inject({
     method: 'GET',
@@ -145,6 +153,18 @@ test('FSM attention links only open own rows', async (t) => {
     assert.ok(items.every((a) => a.fsmUserId === whitfield.id), filter);
     assert.ok(items.every((a) => a.personName !== 'Ada Pencilton'), filter);
   }
+
+  assert.equal(byCode(manager.json().items, 'followup_overdue').count, 2);
+  assert.equal(byCode(own.json().items, 'followup_overdue').count, 1);
+  const fsmFollowups = await app.inject({
+    method: 'GET',
+    url: '/api/people?filter=followup_overdue',
+    headers: { cookie: fsm.cookie },
+  });
+  assert.equal(fsmFollowups.statusCode, 200);
+  const listed = fsmFollowups.json().items;
+  assert.equal(listed.length, byCode(own.json().items, 'followup_overdue').count);
+  assert.deepEqual(listed.map((p) => p.id), [karen.id]);
 });
 
 test('all attention predicates use clock.now() (demo clock)', async (t) => {
@@ -155,9 +175,10 @@ test('all attention predicates use clock.now() (demo clock)', async (t) => {
   const whitfield = userByEmail(app, 'fsm@twincities.example');
   const orgId = twinId(app);
 
+  // Z due vs offset demo clock: lexical `due_at < nowIso()` misses this row.
   app.db.prepare(`
     INSERT INTO assignments (org_id, person_id, user_id, kind, status, due_at, created_at)
-    VALUES (?, ?, ?, 'follow_up', 'open', '2026-08-26T09:00:00-05:00', ?)
+    VALUES (?, ?, ?, 'follow_up', 'open', '2026-08-27T16:00:00Z', ?)
   `).run(orgId, karen.id, whitfield.id, DEMO_CLOCK);
   app.db.prepare(`
     UPDATE people SET lawful_basis = NULL, suppressed = 0 WHERE org_id = ? AND id = ?
@@ -176,6 +197,14 @@ test('all attention predicates use clock.now() (demo clock)', async (t) => {
   assert.equal(byCode(demoItems, 'no_lawful_basis')?.count, 1);
   assert.equal(byCode(demoItems, 'followup_overdue').href, '/crm?filter=followup_overdue');
   assert.equal(byCode(demoItems, 'no_lawful_basis').href, '/crm?filter=no_lawful_basis');
+  const listedFollowups = await app.inject({
+    method: 'GET',
+    url: '/api/people?filter=followup_overdue',
+    headers: { cookie: host.cookie },
+  });
+  assert.equal(listedFollowups.statusCode, 200);
+  assert.equal(listedFollowups.json().items.length, 1);
+  assert.equal(listedFollowups.json().items[0].id, karen.id);
 
   // Wall clock on review day (2026-08-17) would miss every time-based fixture.
   setClock(app, '2026-08-17T12:00:00-05:00');

@@ -43,12 +43,13 @@ function funnelHtml(funnel) {
   const max = Math.max(1, ...rows.map((f) => Number(f.value) || 0));
   rows.forEach((f) => {
     const value = Number(f.value) || 0;
-    const w = Math.max(2, Math.round(value / max * 100));
+    const raw = Math.round(value / max * 100);
+    const w = value === 0 ? 0 : Math.max(2, raw);
     const color = FUNNEL_COLORS[f.key] || ACCENT;
     html += '<div class="fc-funnel-row"><span>' + esc(f.label) + '</span>' +
       '<div class="fc-bar-track"><div class="fc-bar-fill" style="width:' + w + '%;background:' + color + '"></div></div>' +
       '<span class="fc-tnum" style="text-align:right">' + value.toLocaleString() + '</span>' +
-      '<span class="fc-tnum text-muted" style="text-align:right">' + w + '%</span></div>';
+      '<span class="fc-tnum text-muted" style="text-align:right">' + raw + '%</span></div>';
   });
   return html + '</section>';
 }
