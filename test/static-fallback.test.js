@@ -16,6 +16,14 @@ function assertDocumentHeaders(res) {
   assert.equal(res.headers.get('referrer-policy'), 'strict-origin-when-cross-origin');
 }
 
+async function assertStaticMissIsNotHtml(res) {
+  assert.equal(res.status, 404);
+  assert.doesNotMatch(res.headers.get('content-type') ?? '', /html/i);
+  const body = await res.text();
+  assert.doesNotMatch(body, /<!DOCTYPE html/i);
+  assert.doesNotMatch(body, /<html/i);
+}
+
 test('GET / is HTML', async (t) => {
   const { base } = await listen(t);
   const res = await fetch(`${base}/`);
@@ -57,11 +65,15 @@ test('GET /js/app.js is JavaScript', async (t) => {
 
 test('missing /css/x.css is 404 not HTML', async (t) => {
   const { base } = await listen(t);
-  const res = await fetch(`${base}/css/x.css`);
-  assert.equal(res.status, 404);
-  const ct = res.headers.get('content-type') ?? '';
-  assert.doesNotMatch(ct, /html/i);
-  const body = await res.text();
-  assert.doesNotMatch(body, /<!DOCTYPE html/i);
-  assert.doesNotMatch(body, /<html/i);
+  await assertStaticMissIsNotHtml(await fetch(`${base}/css/x.css`));
+});
+
+test('missing /fonts/x.woff2 is 404 not HTML when fonts/ is absent', async (t) => {
+  const { base } = await listen(t);
+  await assertStaticMissIsNotHtml(await fetch(`${base}/fonts/x.woff2`));
+});
+
+test('missing /assets/missing.png is 404 not HTML when assets/ is absent', async (t) => {
+  const { base } = await listen(t);
+  await assertStaticMissIsNotHtml(await fetch(`${base}/assets/missing.png`));
 });
