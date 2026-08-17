@@ -11,9 +11,11 @@ export class ImportRowLimitError extends Error {
 export function isXlsx(filename, mimetype, buffer) {
   const name = String(filename || '').toLowerCase();
   if (/\.xlsx?$/.test(name)) return true;
+  // Windows often sends application/vnd.ms-excel for a real .csv.
+  if (name.endsWith('.csv')) return false;
   const mime = String(mimetype || '').toLowerCase();
   if (mime.includes('spreadsheet') || mime.includes('excel')) return true;
-  if (buffer && buffer.length >= 4 && buffer[0] === 0x50 && buffer[1] === 0x4b && !name.endsWith('.csv')) {
+  if (buffer && buffer.length >= 4 && buffer[0] === 0x50 && buffer[1] === 0x4b) {
     return true;
   }
   return false;

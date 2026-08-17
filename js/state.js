@@ -20,6 +20,7 @@ export const state = {
   importCurrent: null,
   importMissing: false,
   importMessage: null,
+  importBusy: false,
   sourceLabel: '',
   lawfulBasis: 'legitimate_interest_event',
   track: 'FSM',

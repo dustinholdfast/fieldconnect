@@ -43,6 +43,12 @@ function maxStepFor(imp) {
   return 1;
 }
 
+function clampStep(step, imp) {
+  const n = Math.max(1, Number(step) || 1);
+  if (n === 1) return 1;
+  return Math.min(n, maxStepFor(imp));
+}
+
 function mappingOf(imp) {
   return (imp && imp.mapping) || {};
 }
@@ -175,15 +181,15 @@ function wizardStep4(imp) {
   const msg = state.importMessage
     ? '<p style="font-size:13px;color:' + (active ? OK : BAD) + '">' + esc(state.importMessage) + '</p>'
     : '';
+  const busy = !!state.importBusy;
+  const label = active ? 'Activated' : busy ? 'Activating…' : 'Activate list';
+  const disabled = rejected || active || busy;
   return '<div class="fc-panel" style="margin-bottom:20px"><div class="fc-section-title">' +
     (active ? 'List activated' : rejected ? 'Import rejected' : 'Ready to activate') + '</div>' +
     body + msg + '</div>' +
     '<div style="display:flex;gap:10px"><button class="btn btn-secondary" id="prev-step" type="button">Back</button>' +
-    (rejected || active
-      ? '<button class="btn btn-primary" id="activate-list" type="button" disabled>' +
-        (active ? 'Activated' : 'Activate list') + '</button>'
-      : '<button class="btn btn-primary" id="activate-list" type="button">Activate list</button>') +
-    '</div>';
+    '<button class="btn btn-primary" id="activate-list" type="button"' + (disabled ? ' disabled' : '') + '>' +
+    label + '</button></div>';
 }
 
 function historyHtml(items, importId) {
@@ -304,6 +310,10 @@ async function goActivateStep(el) {
   if (!imp) return;
   const sourceLabel = el.querySelector('#import-source')?.value?.trim() || '';
   const lawfulBasis = el.querySelector('#import-basis')?.value || '';
+  if (!sourceLabel) {
+    setState({ importMessage: 'Source label is required.', sourceLabel, lawfulBasis }, { content: true });
+    return;
+  }
   if (!lawfulBasis) {
     setState({ importMessage: 'Lawful basis is required.', sourceLabel, lawfulBasis }, { content: true });
     return;
@@ -318,30 +328,44 @@ async function goActivateStep(el) {
 
 async function runActivate() {
   const imp = currentImport();
-  if (!imp) return;
-  const { ok, data } = await apiJson('/api/imports/' + imp.id + '/activate', {
-    method: 'POST',
-    body: {},
-    silent: true,
-  });
-  if (!ok) {
-    const msg = data?.error?.fields?.lawfulBasis || data?.error?.message || 'Could not activate import.';
-    setState({ importMessage: msg }, { content: true });
-    return;
+  if (!imp || imp.status === 'active' || imp.status === 'rejected' || state.importBusy) return;
+  setState({ importBusy: true });
+  const btn = document.getElementById('activate-list');
+  if (btn) {
+    btn.disabled = true;
+    btn.textContent = 'Activating…';
   }
-  const next = {
-    ...state.importCurrent,
-    status: 'active',
-    stats: data.stats,
-    peopleCreated: data.peopleCreated,
-    peopleMerged: data.peopleMerged,
-  };
-  setState({
-    importCurrent: next,
-    uploadStep: 4,
-    importMessage: `Activated — ${fmt(data.peopleCreated)} created, ${fmt(data.peopleMerged)} merged.`,
-  }, { content: true });
-  loadHistory();
+  try {
+    const { ok, data } = await apiJson('/api/imports/' + imp.id + '/activate', {
+      method: 'POST',
+      body: {},
+      silent: true,
+    });
+    if (!ok) {
+      const msg = data?.error?.fields?.sourceLabel
+        || data?.error?.fields?.lawfulBasis
+        || data?.error?.message
+        || 'Could not activate import.';
+      setState({ importBusy: false, importMessage: msg }, { content: true });
+      return;
+    }
+    const next = {
+      ...state.importCurrent,
+      status: 'active',
+      stats: data.stats,
+      peopleCreated: data.peopleCreated,
+      peopleMerged: data.peopleMerged,
+    };
+    setState({
+      importCurrent: next,
+      importBusy: false,
+      uploadStep: 4,
+      importMessage: `Activated — ${fmt(data.peopleCreated)} created, ${fmt(data.peopleMerged)} merged.`,
+    }, { content: true });
+    loadHistory();
+  } catch {
+    setState({ importBusy: false, importMessage: 'Could not activate import.' }, { content: true });
+  }
 }
 
 async function loadHistory() {
@@ -369,9 +393,9 @@ async function loadImport(route) {
   setState({
     importCurrent: data,
     importMissing: false,
-    uploadStep: Math.max(state.uploadStep, stepForStatus(data.status)),
-    sourceLabel: data.sourceLabel || state.sourceLabel || '',
-    lawfulBasis: data.lawfulBasis || state.lawfulBasis || 'legitimate_interest_event',
+    uploadStep: stepForStatus(data.status),
+    sourceLabel: data.sourceLabel || '',
+    lawfulBasis: data.lawfulBasis || 'legitimate_interest_event',
   }, { content: true });
 }
 
@@ -384,9 +408,7 @@ export function mount(el, route) {
   el.addEventListener('click', (e) => {
     const stepBtn = e.target.closest('[data-step]');
     if (stepBtn) {
-      const next = Number(stepBtn.dataset.step);
-      const max = maxStepFor(currentImport());
-      if (next === 1 || next <= max) setState({ uploadStep: next }, { content: true });
+      setState({ uploadStep: clampStep(stepBtn.dataset.step, currentImport()) }, { content: true });
       return;
     }
     if (e.target.closest('#choose-csv') || e.target.closest('#import-drop')) {
@@ -401,7 +423,7 @@ export function mount(el, route) {
       return;
     }
     if (e.target.closest('#prev-step')) {
-      setState({ uploadStep: Math.max(1, state.uploadStep - 1) }, { content: true });
+      setState({ uploadStep: clampStep(state.uploadStep - 1, currentImport()) }, { content: true });
       return;
     }
     if (e.target.closest('#activate-list')) {
@@ -448,4 +470,5 @@ export function mount(el, route) {
 export function unmount() {
   abort?.abort();
   abort = null;
+  if (state.importBusy) setState({ importBusy: false });
 }

@@ -245,6 +245,50 @@ test('activate twice no double-insert', async (t) => {
   );
 });
 
+test('activate without lawfulBasis is 400 validation_failed', async (t) => {
+  const app = await seededApp(t);
+  const host = await loginAs(app, 'host@twincities.example', 'demo-host-2026');
+  const csv = 'first_name,last_name,email\nNo,Basis,no.basis@example.test\n';
+  const uploaded = await uploadCsv(app, host, 'no-basis.csv', csv);
+  assert.equal(uploaded.statusCode, 201, uploaded.body);
+  const id = uploaded.json().id;
+  const patched = await patchImport(app, host, id, {
+    sourceLabel: 'Test list',
+    mapping: uploaded.json().mapping,
+  });
+  assert.equal(patched.statusCode, 200, patched.body);
+  const validated = await validateImport(app, host, id);
+  assert.equal(validated.statusCode, 200, validated.body);
+  const activated = await activateImport(app, host, id);
+  assert.equal(activated.statusCode, 400);
+  assert.equal(activated.json().error.code, 'validation_failed');
+  assert.ok(activated.json().error.fields.lawfulBasis);
+  assert.equal(
+    app.db.prepare("SELECT COUNT(*) AS c FROM people WHERE email = 'no.basis@example.test'").get().c,
+    0,
+  );
+});
+
+test('activate without sourceLabel is 400 validation_failed', async (t) => {
+  const app = await seededApp(t);
+  const host = await loginAs(app, 'host@twincities.example', 'demo-host-2026');
+  const csv = 'first_name,last_name,email\nNo,Source,no.source@example.test\n';
+  const uploaded = await uploadCsv(app, host, 'no-source.csv', csv);
+  assert.equal(uploaded.statusCode, 201, uploaded.body);
+  const id = uploaded.json().id;
+  const patched = await patchImport(app, host, id, {
+    lawfulBasis: 'legitimate_interest_event',
+    mapping: uploaded.json().mapping,
+  });
+  assert.equal(patched.statusCode, 200, patched.body);
+  const validated = await validateImport(app, host, id);
+  assert.equal(validated.statusCode, 200, validated.body);
+  const activated = await activateImport(app, host, id);
+  assert.equal(activated.statusCode, 400);
+  assert.equal(activated.json().error.code, 'validation_failed');
+  assert.ok(activated.json().error.fields.sourceLabel);
+});
+
 test('FSM 403 on all import routes', async (t) => {
   const app = await seededApp(t);
   const fsm = await loginAs(app, 'fsm@twincities.example', 'demo-fsm-2026');
@@ -308,4 +352,26 @@ test('XLSX 415 unsupported_media', async (t) => {
   });
   assert.equal(res.statusCode, 415);
   assert.deepEqual(res.json(), { error: { code: 'unsupported_media' } });
+});
+
+test('CSV named .csv with Excel MIME is accepted', async (t) => {
+  const app = await seededApp(t);
+  const host = await loginAs(app, 'host@twincities.example', 'demo-host-2026');
+  const part = multipartFile(
+    'windows-export.csv',
+    'first_name,last_name,email\nAda,Excelmime,ada.excelmime@example.test\n',
+    'application/vnd.ms-excel',
+  );
+  const res = await app.inject({
+    method: 'POST',
+    url: '/api/imports',
+    headers: {
+      cookie: host.cookie,
+      'x-csrf-token': host.csrf,
+      ...part.headers,
+    },
+    payload: part.payload,
+  });
+  assert.equal(res.statusCode, 201, res.body);
+  assert.equal(res.json().status, 'uploaded');
 });

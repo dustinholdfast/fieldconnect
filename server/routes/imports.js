@@ -545,58 +545,63 @@ export async function registerImportRoutes(app) {
   app.post('/api/imports/:id/activate', async (request, reply) => {
     const session = request.fcSession;
     const org = withOrg(app.db, session.orgId);
-    const row = loadImport(org, Number(request.params.id));
-    if (!row) return sendError(reply, 404, 'not_found');
-    if (row.status === 'rejected') return sendError(reply, 409, 'conflict');
-    if (row.status === 'active') {
-      const stats = statsOf(row);
-      return { stats, peopleCreated: stats.peopleCreated, peopleMerged: stats.peopleMerged };
-    }
-    if (!row.lawful_basis) {
-      return sendError(reply, 400, 'validation_failed', {
-        fields: { lawfulBasis: 'Lawful basis is required' },
-      });
-    }
-    if (!loadImportRows(app.db, row.id).length) {
-      return sendError(reply, 400, 'validation_failed', { message: 'No rows to activate' });
-    }
+    const id = Number(request.params.id);
+    if (!loadImport(org, id)) return sendError(reply, 404, 'not_found');
 
     const at = nowIso(app.db);
-    let result;
+    let outcome;
     try {
-      const apply = app.db.transaction(() => activateImport(app.db, org, session, row, at));
-      result = apply();
+      const apply = app.db.transaction(() => {
+        const fresh = loadImport(org, id);
+        if (!fresh) return { notFound: true };
+        if (fresh.status === 'rejected') return { conflict: true };
+        // Replay must not re-run mergeIncoming / inserts.
+        if (fresh.status === 'active') return { stats: statsOf(fresh) };
+
+        const fields = {};
+        if (!String(fresh.lawful_basis || '').trim()) fields.lawfulBasis = 'Lawful basis is required';
+        if (!String(fresh.source_label || '').trim()) fields.sourceLabel = 'Source label is required';
+        if (Object.keys(fields).length) return { validation: { fields } };
+        if (!loadImportRows(app.db, fresh.id).length) {
+          return { validation: { message: 'No rows to activate' } };
+        }
+
+        const result = activateImport(app.db, org, session, fresh, at);
+        if (result.error) return { validation: result.error };
+
+        app.db.prepare(`
+          UPDATE imports
+             SET stats_json = ?, status = 'active', journey_key = 'div6-invite'
+           WHERE org_id = ? AND id = ?
+        `).run(JSON.stringify(result.stats), session.orgId, fresh.id);
+
+        writeAudit(app.db, {
+          orgId: session.orgId,
+          actorUserId: session.userId,
+          action: 'import.activate',
+          entityType: 'import',
+          entityId: fresh.id,
+          after: {
+            stats: result.stats,
+            peopleCreated: result.stats.peopleCreated,
+            peopleMerged: result.stats.peopleMerged,
+          },
+        });
+        return { stats: result.stats };
+      });
+      outcome = apply();
     } catch (err) {
       if (uniqueConflict(err)) return sendError(reply, 409, 'conflict');
       throw err;
     }
-    if (result.error) {
-      return sendError(reply, 400, 'validation_failed', result.error);
-    }
 
-    app.db.prepare(`
-      UPDATE imports
-         SET stats_json = ?, status = 'active', journey_key = 'div6-invite'
-       WHERE org_id = ? AND id = ?
-    `).run(JSON.stringify(result.stats), session.orgId, row.id);
-
-    writeAudit(app.db, {
-      orgId: session.orgId,
-      actorUserId: session.userId,
-      action: 'import.activate',
-      entityType: 'import',
-      entityId: row.id,
-      after: {
-        stats: result.stats,
-        peopleCreated: result.stats.peopleCreated,
-        peopleMerged: result.stats.peopleMerged,
-      },
-    });
-
+    if (outcome.notFound) return sendError(reply, 404, 'not_found');
+    if (outcome.conflict) return sendError(reply, 409, 'conflict');
+    if (outcome.validation) return sendError(reply, 400, 'validation_failed', outcome.validation);
     return {
-      stats: result.stats,
-      peopleCreated: result.stats.peopleCreated,
-      peopleMerged: result.stats.peopleMerged,
+      stats: outcome.stats,
+      peopleCreated: outcome.stats.peopleCreated,
+      peopleMerged: outcome.stats.peopleMerged,
     };
   });
 }
