@@ -572,7 +572,9 @@ export async function seedDemo(db) {
         JSON.stringify({
           rowsRead: parseIntish(rows),
           valid: parseIntish(valid),
-          rejected: parseIntish(issues),
+          duplicates: 0,
+          suppressed: parseIntish(issues),
+          rejected: status === 'rejected' ? parseIntish(rows) : 0,
           reason: status === 'rejected' ? 'no lawful basis' : undefined,
         }),
       );

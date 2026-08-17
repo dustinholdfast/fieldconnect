@@ -3,20 +3,22 @@ import { readFile } from 'node:fs/promises';
 import { dirname, join } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import cookie from '@fastify/cookie';
+import multipart from '@fastify/multipart';
 import fastifyStatic from '@fastify/static';
 import Fastify from 'fastify';
 import { attachSession, enforceApiAuth, registerAuth, resolveSessionSecret } from './auth.js';
-import { openDatabase } from './db.js';
+import { dataDir as defaultDataDir, openDatabase } from './db.js';
 import { seedDemo } from './fixtures/demo.js';
 import { registerHealth } from './health.js';
 import { registerAuthRoutes, registerMetrics } from './routes/auth.js';
+import { registerImportRoutes } from './routes/imports.js';
 import { registerPeopleRoutes } from './routes/people.js';
 import { registerSchedulingRoutes } from './routes/scheduling.js';
 
 const rootDir = join(dirname(fileURLToPath(import.meta.url)), '..');
 
 // Missing files under these prefixes must 404 — never index.html.
-const STATIC_PREFIXES = ['/css/', '/js/', '/fonts/', '/assets/'];
+const STATIC_PREFIXES = ['/css/', '/js/', '/fonts/', '/assets/', '/shared/'];
 
 function pathnameOf(url) {
   const q = url.indexOf('?');
@@ -37,10 +39,13 @@ function isApiPath(pathname) {
 export async function buildApp(opts = {}) {
   const app = Fastify({
     logger: opts.logger ?? false,
+    bodyLimit: 6 * 1024 * 1024,
   });
 
-  const db = opts.db ?? openDatabase(opts.dataDir);
+  const resolvedDataDir = opts.dataDir || defaultDataDir();
+  const db = opts.db ?? openDatabase(resolvedDataDir);
   app.decorate('db', db);
+  app.decorate('dataDir', resolvedDataDir);
   app.addHook('onClose', (_instance, done) => {
     if (!opts.db) {
       try { db.close(); } catch { /* already closed */ }
@@ -62,13 +67,18 @@ export async function buildApp(opts = {}) {
   app.decorate('sessionSecret', sessionSecret);
   await app.register(cookie, { secret: sessionSecret });
   registerAuth(app);
+  await app.register(multipart, {
+    limits: { fileSize: 5 * 1024 * 1024 },
+    attachFieldsToBody: false,
+  });
   await registerHealth(app);
   await registerAuthRoutes(app);
   await registerPeopleRoutes(app);
   await registerSchedulingRoutes(app);
+  await registerImportRoutes(app);
   registerMetrics(app);
 
-  for (const name of ['css', 'js', 'fonts', 'assets']) {
+  for (const name of ['css', 'js', 'fonts', 'assets', 'shared']) {
     const dir = join(rootDir, name);
     if (!existsSync(dir)) continue;
     await app.register(fastifyStatic, {

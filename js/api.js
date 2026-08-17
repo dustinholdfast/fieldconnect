@@ -34,7 +34,8 @@ export async function api(path, { method = 'GET', body, headers, silent = false,
   if (mutating && csrfToken) {
     nextHeaders['X-CSRF-Token'] = csrfToken;
   }
-  if (body != null && !nextHeaders['Content-Type']) {
+  const isForm = typeof FormData !== 'undefined' && body instanceof FormData;
+  if (body != null && !isForm && !nextHeaders['Content-Type']) {
     nextHeaders['Content-Type'] = 'application/json';
   }
   const retry = () => api(path, { method, body, headers, silent, signal });
@@ -44,7 +45,7 @@ export async function api(path, { method = 'GET', body, headers, silent = false,
       headers: nextHeaders,
       credentials: 'same-origin',
       signal,
-      body: body == null ? undefined : typeof body === 'string' ? body : JSON.stringify(body),
+      body: body == null ? undefined : isForm || typeof body === 'string' ? body : JSON.stringify(body),
     });
     if (!silent && !res.ok) {
       report({ path, status: res.status, retry });
