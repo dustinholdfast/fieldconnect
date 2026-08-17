@@ -113,6 +113,8 @@ export async function flushQueue() {
         const res = await postItem(item);
         if (res.status === 200 || res.status === 201) {
           await removeQueued(item.clientId);
+        } else if (res.status === 400 || res.status === 403 || res.status === 404 || res.status === 409) {
+          await removeQueued(item.clientId);
         } else if (res.status >= 500) {
           await markAttempt(item.clientId, 'server');
         } else {

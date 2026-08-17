@@ -250,10 +250,11 @@ function formHtml(current) {
   html += '</select></div>' +
     '<div class="fc-field"><label>Desired improvement</label>' +
     '<input type="text" data-o="desired" value="' + esc(o.desired) + '" placeholder="In their words" /></div></div>' +
-    '<div class="fc-field" style="margin-bottom:16px"><label>Notes — record what they said, not an interpretation</label>' +
-    '<textarea data-o="ruinNotes" rows="2">' + esc(o.ruinNotes) + '</textarea></div>' +
     '<div id="outcome-pathways">' + pathwayHtml(o, current.outcomePathways) + '</div>' +
     fieldError(errors, 'pathway') + '</div>' +
+    '<div id="outcome-notes" class="fc-field" style="margin-bottom:16px">' +
+    '<label>Notes — record what they said, not an interpretation</label>' +
+    '<textarea data-o="ruinNotes" rows="2">' + esc(o.ruinNotes) + '</textarea></div>' +
     '<div id="outcome-section-product"' + (hideProduct ? ' class="hidden"' : '') + '>' +
     '<div class="fc-section-title" style="margin-top:18px">Product results</div>' +
     '<div id="outcome-line-items" style="margin-bottom:16px">' + lineItemsHtml(o) + '</div>' +
@@ -398,14 +399,14 @@ async function submitOutcome(el) {
     return;
   }
   const payload = payloadFrom(state.o);
-  await enqueue({
+  const queued = {
     clientId: payload.clientId,
     appointmentId: payload.appointmentId,
     payload,
     createdAt: new Date().toISOString(),
     attempts: 0,
     lastError: null,
-  });
+  };
   try {
     const { ok, status, data } = await apiJson('/api/outcomes', {
       method: 'POST',
@@ -417,25 +418,31 @@ async function submitOutcome(el) {
       await removeQueued(payload.clientId);
       state.submitted = true;
       const closed = data?.appointment?.status;
-      const msg = closed === 'Partial'
+      const isPartial = closed === 'Partial' || data?.outcome == null;
+      const msg = isPartial
         ? 'Saved as Partial — finish the outcome form when the interview is complete.'
         : 'Submitted — appointment closed, follow-up task created, reporting queued.';
       showNote(el, msg, 'success');
       if (data?.appointment) state.outcomeAppointment = { ...state.outcomeAppointment, ...data.appointment };
+      // Completing yes/no must not replay the Partial idempotency key.
+      if (isPartial) patchO({ clientId: null });
       updateOutcomeDerived(el);
       return;
     }
-    if (status === 400 && data?.error?.fields) {
-      showErrors(el, data.error.fields);
-      showNote(el, 'Fix the highlighted fields before submitting.', 'bad');
+    if (status === 400 || status === 403 || status === 404 || status === 409) {
+      await removeQueued(payload.clientId);
+      if (status === 400 && data?.error?.fields) {
+        showErrors(el, data.error.fields);
+        showNote(el, 'Fix the highlighted fields before submitting.', 'bad');
+        return;
+      }
+      showNote(el, data?.error?.message || 'Could not submit this outcome.', 'bad');
       return;
     }
-    if (status >= 500 || status === 0) {
-      showNote(el, OFFLINE_NOTE);
-      return;
-    }
-    showNote(el, data?.error?.message || 'Could not submit this outcome.', 'bad');
+    await enqueue(queued);
+    showNote(el, OFFLINE_NOTE);
   } catch {
+    await enqueue(queued);
     showNote(el, OFFLINE_NOTE);
   }
 }
@@ -549,6 +556,8 @@ export function mount(el, route) {
     const key = field.dataset.o;
     const value = field.type === 'checkbox' ? field.checked : field.value;
     patchO({ [key]: value });
+    // New delivered mode is a new submit, not a replay of a queued Partial.
+    if (key === 'delivered') patchO({ clientId: null });
     setState({});
     if (key === 'delivered' || key === 'result' || key === 'ruinCat') {
       toggleOutcomeSections(el);
