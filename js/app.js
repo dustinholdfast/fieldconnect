@@ -1,4 +1,5 @@
 import { api, setApiErrorHandler, setCsrfToken } from './api.js';
+import { startOutcomeFlush } from './outcome/queue.js';
 import {
   ROLE_SCREENS, ROLES, SCREENS
 } from './data.js';
@@ -314,6 +315,7 @@ async function boot() {
   }
 
   applySession(me);
+  startOutcomeFlush();
   startRouter(handleLocation);
 }
 

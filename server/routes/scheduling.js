@@ -186,6 +186,8 @@ function toAppointmentDto(row, extras = {}) {
     status: row.status,
     actionDue: row.action_due,
     offerToken: row.offer_token,
+    actualDurationMin: row.actual_duration_min ?? null,
+    partialReason: row.partial_reason ?? null,
     needsOutcome: extras.needsOutcome === true,
   };
 }

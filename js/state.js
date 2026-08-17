@@ -28,13 +28,29 @@ export const state = {
   submitted: false,
   error: null,
   storyStages: {},
+  outcomeAppointment: null,
+  outcomeCatalog: null,
+  outcomePathways: null,
+  outcomePicker: null,
   o: {
-    delivered: 'yes', duration: '46', result: 'Qualified', channel: 'Email',
-    ruinCat: '', desired: '', ruinNotes: '', pathway: '',
-    books: '1', bookValue: '25', seminars: '0', semValue: '50',
-    next: '', due: '', objection: '', storySignal: 'No',
-    consent0: true, consent1: false, consent2: false
-  }
+    appointmentId: null,
+    clientId: null,
+    delivered: 'yes',
+    duration: '46',
+    partialReason: '',
+    result: 'Qualified',
+    channel: 'Email',
+    ruinCat: '',
+    desired: '',
+    ruinNotes: '',
+    pathway: '',
+    lineItems: [],
+    next: '',
+    due: '',
+    objection: '',
+    storySignal: 'No',
+    consents: { followup: true, testimonial: false, publicStory: false },
+  },
 };
 
 export function setRouteHandler(fn) {
@@ -49,10 +65,22 @@ export function setState(partial, flags = {}) {
 
 export function defaultOutcome() {
   return {
-    delivered: 'yes', duration: '', result: '', channel: 'Email',
-    ruinCat: '', desired: '', ruinNotes: '', pathway: '',
-    books: '0', bookValue: '0', seminars: '0', semValue: '0',
-    next: '', due: '', objection: '', storySignal: 'No',
-    consent0: false, consent1: false, consent2: false
+    appointmentId: null,
+    clientId: null,
+    delivered: 'yes',
+    duration: '',
+    partialReason: '',
+    result: '',
+    channel: 'Email',
+    ruinCat: '',
+    desired: '',
+    ruinNotes: '',
+    pathway: '',
+    lineItems: [],
+    next: '',
+    due: '',
+    objection: '',
+    storySignal: 'No',
+    consents: { followup: false, testimonial: false, publicStory: false },
   };
 }

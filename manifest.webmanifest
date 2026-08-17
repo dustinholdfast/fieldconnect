@@ -1,0 +1,9 @@
+{
+  "name": "FieldConnect Outcome",
+  "short_name": "Outcome",
+  "start_url": "/outcome",
+  "scope": "/outcome",
+  "display": "standalone",
+  "background_color": "#f3f2f2",
+  "theme_color": "#b68235"
+}

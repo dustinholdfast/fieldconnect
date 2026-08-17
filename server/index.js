@@ -13,6 +13,7 @@ import { registerHealth } from './health.js';
 import { registerAuthRoutes, registerMetrics } from './routes/auth.js';
 import { registerImportRoutes } from './routes/imports.js';
 import { registerPeopleRoutes } from './routes/people.js';
+import { registerOutcomeRoutes } from './routes/outcomes.js';
 import { registerSchedulingRoutes } from './routes/scheduling.js';
 
 const rootDir = join(dirname(fileURLToPath(import.meta.url)), '..');
@@ -76,7 +77,13 @@ export async function buildApp(opts = {}) {
   await registerPeopleRoutes(app);
   await registerSchedulingRoutes(app);
   await registerImportRoutes(app);
+  await registerOutcomeRoutes(app);
   registerMetrics(app);
+
+  app.get('/manifest.webmanifest', async (_request, reply) => {
+    const file = await readFile(join(rootDir, 'manifest.webmanifest'));
+    return reply.type('application/manifest+json; charset=utf-8').send(file);
+  });
 
   for (const name of ['css', 'js', 'fonts', 'assets', 'shared']) {
     const dir = join(rootDir, name);
