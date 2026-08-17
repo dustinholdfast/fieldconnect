@@ -166,7 +166,7 @@ function optionsHtml(values, selected, blank) {
   return html;
 }
 
-function fsmOptions(selected, current) {
+export function fsmOptions(selected, current) {
   const selectedId = selected != null && selected !== '' ? Number(selected) : null;
   const seen = new Set();
   const rows = [];
@@ -177,7 +177,7 @@ function fsmOptions(selected, current) {
   });
   // Seed assigns heroes to inactive FSMs (Lindgren / Okonjo); keep that option so Edit does not snap to "—".
   if (selectedId && !seen.has(selectedId)) {
-    const name = current?.displayName || current?.fsm || 'Assigned FSM';
+    const name = current?.fsm || current?.fsmName || current?.displayName || 'Assigned FSM';
     rows.push({ id: selectedId, displayName: name, active: false });
   }
   let html = '<option value="">—</option>';
@@ -279,7 +279,7 @@ async function loadList(el, route, signal) {
     if (fsm && document.activeElement !== fsm) {
       const selectedLabel = fsm.selectedOptions[0]?.textContent || '';
       fsm.innerHTML = fsmOptions(fsm.value, {
-        displayName: selectedLabel.replace(/\s*\(inactive\)\s*$/, ''),
+        fsm: selectedLabel.replace(/\s*\(inactive\)\s*$/, ''),
       });
     }
   } catch {

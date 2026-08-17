@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
+import { fsmOptions } from '../js/screens/crm.js';
 import { render as renderOutcome, mount as mountOutcome, unmount as unmountOutcome } from '../js/screens/outcome.js';
 import { parsePath } from '../js/router.js';
 import { setRouteHandler, setState, state } from '../js/state.js';
@@ -94,5 +95,17 @@ test('input on outcome duration does not rebuild #app or move focus', async () =
   if (!ran) {
     // happy-dom not installed: the setState-without-flags test above is the contract.
     assert.ok(true);
+  }
+});
+
+test('inactive FSM option uses fsm name, not contact displayName', () => {
+  const prev = state.crmFsms;
+  state.crmFsms = [{ id: 1, displayName: 'D. Whitfield' }];
+  try {
+    const html = fsmOptions(4, { displayName: 'Priya Raman', fsm: 'S. Lindgren' });
+    assert.match(html, /S\. Lindgren \(inactive\)/);
+    assert.doesNotMatch(html, /Priya Raman \(inactive\)/);
+  } finally {
+    state.crmFsms = prev;
   }
 });
