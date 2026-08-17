@@ -65,7 +65,7 @@ test('GET /js/app.js is JavaScript', async (t) => {
   const res = await fetch(`${base}/js/app.js`);
   assert.equal(res.status, 200);
   assert.match(res.headers.get('content-type') ?? '', /javascript/);
-  assert.match(await res.text(), /from ['"]\.\/data\.js['"]/);
+  assert.match(await res.text(), /from ['"]\.\.\/shared\/roles\.js['"]/);
 });
 
 test('missing /css/x.css is 404 not HTML', async (t) => {

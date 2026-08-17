@@ -1,5 +1,5 @@
 import { apiJson } from '../api.js';
-import { ROLES_TABLE } from '../data.js';
+import { ROLES_TABLE } from '../../shared/roles.js';
 import { emptyPanel, esc, OK, WARN } from '../html.js';
 
 let abort = null;

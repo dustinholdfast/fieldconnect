@@ -1,8 +1,6 @@
 import { api, setApiErrorHandler, setCsrfToken } from './api.js';
 import { startOutcomeFlush } from './outcome/queue.js';
-import {
-  ROLE_SCREENS, ROLES, SCREENS
-} from './data.js';
+import { ROLE_SCREENS, ROLES, SCREENS } from '../shared/roles.js';
 import { errorBanner, esc } from './html.js';
 import { canAccess, renderNav, roleMeta, screensForRole } from './nav.js';
 import {

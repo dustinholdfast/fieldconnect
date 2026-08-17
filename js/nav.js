@@ -1,4 +1,4 @@
-import { ROLE_SCREENS, ROLES, SCREENS } from './data.js';
+import { ROLE_SCREENS, ROLES, SCREENS } from '../shared/roles.js';
 import { esc } from './html.js';
 
 export function screensForRole(role) {

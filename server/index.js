@@ -16,10 +16,14 @@ import { registerAuditRoutes } from './routes/audit.js';
 import { registerAuthRoutes, registerMetrics } from './routes/auth.js';
 import { registerImportRoutes } from './routes/imports.js';
 import { registerExportRoutes } from './routes/exports.js';
+import { registerJourneyRoutes } from './routes/journeys.js';
 import { registerPeopleRoutes } from './routes/people.js';
 import { registerOutcomeRoutes } from './routes/outcomes.js';
 import { registerDashboardRoutes } from './routes/dashboard.js';
+import { registerRecruitmentRoutes } from './routes/recruitment.js';
 import { registerSchedulingRoutes } from './routes/scheduling.js';
+import { registerStoryRoutes } from './routes/stories.js';
+import { registerTrainingRoutes } from './routes/training.js';
 
 const rootDir = join(dirname(fileURLToPath(import.meta.url)), '..');
 
@@ -91,6 +95,10 @@ export async function buildApp(opts = {}) {
   await registerExportRoutes(app);
   await registerAuditRoutes(app);
   await registerAdminRoutes(app);
+  await registerJourneyRoutes(app);
+  await registerTrainingRoutes(app);
+  await registerStoryRoutes(app);
+  await registerRecruitmentRoutes(app);
   registerMetrics(app);
   if (jobsOn) startRunner(db, { dataDir: resolvedDataDir });
 

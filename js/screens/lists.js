@@ -4,6 +4,23 @@ import { navigate } from '../router.js';
 import { PERSON_FIELDS } from '../../shared/import/mapping.js';
 import { setState, state } from '../state.js';
 
+const MAPPING = [
+  ['first_name', 'Karen', 'Contact · first name', 'Mapped', 'ok'],
+  ['last_name', 'Iversen', 'Contact · last name', 'Mapped', 'ok'],
+  ['e-mail', 'sample@example.test', 'Contact · email (match key)', 'Mapped', 'ok'],
+  ['mobile', '555-0100', 'Contact · phone', 'Mapped', 'ok'],
+  ['zip', '55403', 'Contact · postal code', 'Mapped', 'ok'],
+  ['notes', 'Met at open house', 'Contact · source notes', 'Mapped', 'ok'],
+  ['interest', 'DN book', 'Unmapped — ignore or create tag', 'Needs decision', 'warn'],
+];
+
+const IMPORTS = [
+  ['spring-open-house-2026.csv', '16 Aug 2026', '1,284', '1,197', '19', 'Pending activation'],
+  ['winter-list-2026.xlsx', '04 Feb 2026', '862', '791', '34', 'Active'],
+  ['book-fair-signups.csv', '11 Nov 2025', '318', '288', '12', 'Active'],
+  ['legacy-cards-2019.csv', '02 Sep 2025', '2,410', '0', '2,410', 'Rejected — no lawful basis'],
+];
+
 let abort = null;
 
 const STEPS = ['Upload file', 'Map fields', 'Validate', 'Activate'];

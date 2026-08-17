@@ -15,6 +15,33 @@ export const DEMO_CLOCK = '2026-08-27T12:00:00-05:00';
 export const DEMO_TODAY = '2026-08-27';
 export const DEMO_TOMORROW = '2026-08-28';
 
+// Recruitment tables land in PR 13. One fixture function — not a second journey seed.
+export function recruitmentBoard() {
+  return {
+    stats: [
+      { label: 'Candidates in funnel', value: '64', note: 'across 3 Churches' },
+      { label: 'Orientation attendance', value: '71%', note: '+6 pts vs last wave' },
+      { label: 'Activation rate', value: '38%', note: 'of orientation attendees' },
+      { label: 'Median time to first activity', value: '11 d', note: 'target: 14 d' },
+    ],
+    columns: [
+      { name: 'Prospect', count: 12, candidates: [{ name: 'A. Mensah', source: 'Referral' }, { name: 'L. Park', source: 'Social' }] },
+      { name: 'Interested', count: 9, candidates: [{ name: 'K. Voss', source: 'Email' }, { name: 'T. Okoro', source: 'Referral' }] },
+      { name: 'Orient. registered', count: 11, candidates: [{ name: 'M. Silva', source: 'Webinar' }, { name: 'J. Cho', source: 'Referral' }] },
+      { name: 'Orient. attended', count: 8, candidates: [{ name: 'R. Patel', source: 'Webinar' }, { name: 'S. Kim', source: 'Referral' }] },
+      { name: 'Qualification', count: 7, candidates: [{ name: 'N. Brooks', source: 'Form' }, { name: 'D. Ali', source: 'Call' }] },
+      { name: 'Activated', count: 6, candidates: [{ name: 'P. Nguyen', source: 'FSM' }, { name: 'C. Ruiz', source: 'Disseminator' }] },
+      { name: 'First activity', count: 5, candidates: [{ name: 'E. Johansson', source: 'Lecture' }, { name: 'H. Wong', source: 'Invite' }] },
+      { name: 'Retained', count: 6, candidates: [{ name: 'F. Berg', source: '30 d+' }, { name: 'Y. Sato', source: '60 d+' }] },
+    ],
+    webinars: [
+      { session: '12 Aug — Intro to field work', registered: 28, attended: 21, qualified: 14, activated: 9 },
+      { session: '5 Aug — Responsibilities & support', registered: 19, attended: 15, qualified: 11, activated: 7 },
+      { session: '22 Jul — Path to activation', registered: 24, attended: 17, qualified: 12, activated: 8 },
+    ],
+  };
+}
+
 const MONTHS = {
   Jan: '01', Feb: '02', Mar: '03', Apr: '04', May: '05', Jun: '06',
   Jul: '07', Aug: '08', Sep: '09', Oct: '10', Nov: '11', Dec: '12',
