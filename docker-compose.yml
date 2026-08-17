@@ -11,6 +11,9 @@ services:
       FIELDCONNECT_DATA_DIR: /data
       SESSION_SECRET: dev-insecure-change-me
       SEED_DEMO: "true"
+      JOBS_ENABLED: "true"
+      METAPULSE_L1_ENABLED: "true"
+      METAPULSE_L2_ENABLED: "false"
     volumes:
       - fieldconnect-data:/data
     healthcheck:

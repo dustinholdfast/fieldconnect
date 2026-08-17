@@ -10,8 +10,12 @@ import { attachSession, enforceApiAuth, registerAuth, resolveSessionSecret } fro
 import { dataDir as defaultDataDir, openDatabase } from './db.js';
 import { seedDemo } from './fixtures/demo.js';
 import { registerHealth } from './health.js';
+import { startRunner, stopRunner } from './jobs/runner.js';
+import { registerAdminRoutes } from './routes/admin.js';
+import { registerAuditRoutes } from './routes/audit.js';
 import { registerAuthRoutes, registerMetrics } from './routes/auth.js';
 import { registerImportRoutes } from './routes/imports.js';
+import { registerExportRoutes } from './routes/exports.js';
 import { registerPeopleRoutes } from './routes/people.js';
 import { registerOutcomeRoutes } from './routes/outcomes.js';
 import { registerDashboardRoutes } from './routes/dashboard.js';
@@ -46,9 +50,13 @@ export async function buildApp(opts = {}) {
 
   const resolvedDataDir = opts.dataDir || defaultDataDir();
   const db = opts.db ?? openDatabase(resolvedDataDir);
+  const jobsOn = opts.jobs === true
+    || (opts.jobs !== false && process.env.JOBS_ENABLED === 'true');
   app.decorate('db', db);
   app.decorate('dataDir', resolvedDataDir);
+  app.decorate('jobsEnabled', jobsOn);
   app.addHook('onClose', (_instance, done) => {
+    if (jobsOn) stopRunner();
     if (!opts.db) {
       try { db.close(); } catch { /* already closed */ }
     }
@@ -80,7 +88,11 @@ export async function buildApp(opts = {}) {
   await registerImportRoutes(app);
   await registerOutcomeRoutes(app);
   await registerDashboardRoutes(app);
+  await registerExportRoutes(app);
+  await registerAuditRoutes(app);
+  await registerAdminRoutes(app);
   registerMetrics(app);
+  if (jobsOn) startRunner(db, { dataDir: resolvedDataDir });
 
   app.get('/manifest.webmanifest', async (_request, reply) => {
     const file = await readFile(join(rootDir, 'manifest.webmanifest'));
@@ -116,7 +128,10 @@ export async function buildApp(opts = {}) {
 
 async function main() {
   const port = Number.parseInt(process.env.PORT ?? '8080', 10);
-  const app = await buildApp({ logger: true });
+  const app = await buildApp({
+    logger: true,
+    jobs: process.env.JOBS_ENABLED !== 'false',
+  });
   try {
     await app.listen({ port, host: '0.0.0.0' });
   } catch (err) {

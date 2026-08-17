@@ -15,10 +15,10 @@ async function listen(t) {
   return { app, base: `http://127.0.0.1:${port}` };
 }
 
-test('GET /healthz returns { ok: true, db: ok }', async (t) => {
+test('GET /healthz returns { ok: true, db: ok, jobs }', async (t) => {
   const { base } = await listen(t);
   const res = await fetch(`${base}/healthz`);
   assert.equal(res.status, 200);
   assert.match(res.headers.get('content-type') ?? '', /application\/json/);
-  assert.deepEqual(await res.json(), { ok: true, db: 'ok' });
+  assert.deepEqual(await res.json(), { ok: true, db: 'ok', jobs: 'off' });
 });

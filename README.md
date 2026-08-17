@@ -22,7 +22,7 @@ The Pilot runtime is a single Node.js (Fastify) process that serves the existing
 - **Training library** — track chips, course cards with progress bars, qualification status rail
 - **Recruitment funnel** — pipeline board (8 stages) + orientation webinar table
 - **Success line** — stage cards, story table with Advance action, separate consent record
-- **Platform admin** — organizations table, roles & permissions, MetaPulse Level 1/2/3 panel with live adapter toggle, reconciliation stats, audit trail
+- **Platform admin** — live orgs from `GET /api/orgs` (the one cross-org metadata read), roles documentation, MetaPulse Level 1 CSV export, Level 2 disabled, last L1 export stats, audit trail from `GET /api/audit`
 
 All sample data and copy match the original design prototype.
 
@@ -42,7 +42,7 @@ docker compose up --build -d
 
 Open **http://localhost:8080**
 
-Health: `GET http://localhost:8080/healthz` → `{ "ok": true, "db": "ok" }`.
+Health: `GET http://localhost:8080/healthz` → `{ "ok": true, "db": "ok", "jobs": "ok" }` (`jobs` is `"off"` when the in-process runner is disabled).
 
 Stop:
 
@@ -136,6 +136,10 @@ fieldconnect/
 The browser still runs the vanilla JS SPA (`js/app.js` + `js/data.js`). Fastify serves `/css` and `/js` as static files and returns `index.html` for other document GETs so History API routes such as `/crm/1` can refresh. Missing files under `/css`, `/js`, `/fonts`, and `/assets` return 404 (never the SPA shell). On boot the process opens SQLite, applies `server/migrations/*.sql`, and seeds when `SEED_DEMO=true`.
 
 The client calls `GET /api/auth/me` on boot. A 401 sends the browser to `/login?next=`. After login, navigation goes to `next` or `/dashboard`, and the user chip / nav come from the session — the role switcher is not rendered. Unauthenticated `/api/*` (except login/logout) returns `401 unauthenticated`. `GET /metrics` is an admin-only stub.
+
+An in-process job poller (`setInterval` 2s, one queued row per tick) runs when `JOBS_ENABLED` is not `false` (`npm start` / Compose). Kinds: `metapulse_l1` (Level 1 CSV of live people) and `reminders` (Booked appointments with `start_at - clock.now() ≤ 24h` become `Reminder due`). `metapulse_reconcile` is rejected until Wave 2. Failures increment `attempts` and requeue; after 3 attempts the job is `failed`. Under the frozen demo clock, retry backoff is 0 (the 2s poller spaces work); production waits `5s * 2^(attempts-1)` on the wall clock. Domain times always use `clock.now()`. `/healthz` only reads counters — it does not run jobs.
+
+`GET /api/orgs` is the one cross-org metadata read (id, slug, name, wave, status, user/contact counts, map). It does not return people, emails, or appointments. Admin session `org_id` stays Twin Cities for every mutating route. MetaPulse Level 2 cannot be enabled in Pilot (`METAPULSE_L2_ENABLED` stays false; the admin control is disabled).
 
 `SESSION_SECRET` signs `fc_session`. Missing in production exits the process; missing in development generates a random secret and warns once. Rotating the secret invalidates existing cookies.
 
