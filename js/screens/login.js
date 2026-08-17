@@ -5,7 +5,7 @@ export function render() {
     '<div class="fc-login">' +
       '<div class="fc-brand-name">FieldConnect</div>' +
       '<div class="kicker">Event → Field Conversion</div>' +
-      '<form id="login-form">' +
+      '<form id="login-form" method="post" action="/api/auth/login">' +
         '<div class="fc-field">' +
           '<label for="login-email">Email</label>' +
           '<input id="login-email" class="input" type="email" name="email" required autocomplete="username" />' +
@@ -48,6 +48,10 @@ export function mount(el, { onSuccess } = {}) {
     }
     if (res.status === 401) {
       showError(errorEl, 'Email or password is not recognised.');
+      return;
+    }
+    if (res.status === 429) {
+      showError(errorEl, 'Too many sign-in attempts. Please wait 15 minutes.');
       return;
     }
     if (!res.ok) {

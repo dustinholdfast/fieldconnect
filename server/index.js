@@ -5,7 +5,7 @@ import { fileURLToPath, pathToFileURL } from 'node:url';
 import cookie from '@fastify/cookie';
 import fastifyStatic from '@fastify/static';
 import Fastify from 'fastify';
-import { attachSession, enforceApiAuth, registerAuth } from './auth.js';
+import { attachSession, enforceApiAuth, registerAuth, resolveSessionSecret } from './auth.js';
 import { openDatabase } from './db.js';
 import { seedDemo } from './fixtures/demo.js';
 import { registerHealth } from './health.js';
@@ -56,7 +56,9 @@ export async function buildApp(opts = {}) {
     return payload;
   });
 
-  await app.register(cookie);
+  const sessionSecret = resolveSessionSecret(app.log);
+  app.decorate('sessionSecret', sessionSecret);
+  await app.register(cookie, { secret: sessionSecret });
   registerAuth(app);
   await registerHealth(app);
   await registerAuthRoutes(app);

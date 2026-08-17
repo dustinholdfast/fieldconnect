@@ -41,6 +41,7 @@ export function cookieOptions() {
     sameSite: 'lax',
     secure: process.env.NODE_ENV === 'production',
     maxAge: Math.floor(SESSION_TTL_MS / 1000),
+    signed: true,
   };
 }
 
@@ -232,10 +233,19 @@ function readCookie(request, name) {
   return null;
 }
 
+function sessionIdFromRequest(request) {
+  const raw = request.cookies?.[COOKIE_NAME] ?? readCookie(request, COOKIE_NAME);
+  if (!raw) return null;
+  if (typeof request.unsignCookie === 'function') {
+    const result = request.unsignCookie(raw);
+    return result.valid ? result.value : null;
+  }
+  return raw;
+}
+
 export function attachSession(db, request, reply) {
   request.fcSession = null;
-  const id = readCookie(request, COOKIE_NAME);
-  const session = loadSession(db, id);
+  const session = loadSession(db, sessionIdFromRequest(request));
   if (!session) return;
   request.fcSession = session;
   const pathname = pathnameOf(request.url);
@@ -245,7 +255,6 @@ export function attachSession(db, request, reply) {
 }
 
 export function registerAuth(app) {
-  resolveSessionSecret(app.log);
   app.decorateRequest('fcSession', null);
 
   app.addHook('onRequest', async (request, reply) => {

@@ -6,7 +6,7 @@ The Pilot runtime is a single Node.js (Fastify) process that serves the existing
 
 ## Features implemented
 
-- **Session auth**: cookie `fc_session` (HttpOnly, SameSite=Lax, Path=/; `Secure` only when `NODE_ENV=production`), 12-hour sliding TTL on every authenticated `/api/*` request, CSRF via `X-CSRF-Token`
+- **Session auth**: cookie `fc_session` (HttpOnly, SameSite=Lax, Path=/; `Secure` only when `NODE_ENV=production`; signed with `SESSION_SECRET`), 12-hour sliding TTL on every authenticated `/api/*` request, CSRF via `X-CSRF-Token`
 - **Login screen** at `/login` (no shell). Unauthenticated visits redirect to `/login?next=`. There is **no role switcher** — `state.role` comes from the session user.
 - **Global shell**: fixed 244 px sidebar, role-aware nav, header with user chip from the session, MetaPulse sync status
 - **Role scoping** (from `users.role` / `ROLE_SCREENS`):
@@ -136,6 +136,8 @@ fieldconnect/
 The browser still runs the vanilla JS SPA (`js/app.js` + `js/data.js`). Fastify serves `/css` and `/js` as static files and returns `index.html` for other document GETs so History API routes such as `/crm/1` can refresh. Missing files under `/css`, `/js`, `/fonts`, and `/assets` return 404 (never the SPA shell). On boot the process opens SQLite, applies `server/migrations/*.sql`, and seeds when `SEED_DEMO=true`.
 
 The client calls `GET /api/auth/me` on boot. A 401 sends the browser to `/login?next=`. After login, navigation goes to `next` or `/dashboard`, and the user chip / nav come from the session — the role switcher is not rendered. Unauthenticated `/api/*` (except login/logout) returns `401 unauthenticated`. `GET /metrics` is an admin-only stub.
+
+`SESSION_SECRET` signs `fc_session`. Missing in production exits the process; missing in development generates a random secret and warns once. Rotating the secret invalidates existing cookies.
 
 `nginx.conf` is retained as an optional TLS edge example. It is not required to run the Pilot process.
 

@@ -155,32 +155,6 @@ html, body {
   gap: 16px;
 }
 
-.fc-role-switcher {
-  display: inline-flex;
-  border: 1px solid var(--color-divider);
-  border-radius: 4px;
-  overflow: hidden;
-}
-
-.fc-role-opt {
-  padding: 7px 14px;
-  font-size: 12.5px;
-  cursor: pointer;
-  border: none;
-  background: transparent;
-  color: inherit;
-  font-family: inherit;
-}
-
-.fc-role-opt + .fc-role-opt {
-  border-left: 1px solid var(--color-divider);
-}
-
-.fc-role-opt.active {
-  background: color-mix(in srgb, #b68235 14%, transparent);
-  color: var(--color-accent-700);
-}
-
 .fc-user-chip {
   display: flex;
   align-items: center;

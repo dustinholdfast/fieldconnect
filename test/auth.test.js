@@ -27,8 +27,10 @@ function cookieParts(res) {
   const list = Array.isArray(raw) ? raw : raw ? [raw] : [];
   const line = list.find((c) => String(c).startsWith('fc_session='));
   assert.ok(line, 'expected fc_session Set-Cookie');
-  const value = String(line).split(';')[0].slice('fc_session='.length);
-  return { line: String(line), value, header: `fc_session=${value}` };
+  const signed = String(line).split(';')[0].slice('fc_session='.length);
+  const dot = signed.lastIndexOf('.');
+  const value = decodeURIComponent(dot === -1 ? signed : signed.slice(0, dot));
+  return { line: String(line), value, header: `fc_session=${signed}` };
 }
 
 async function login(app, email, password) {

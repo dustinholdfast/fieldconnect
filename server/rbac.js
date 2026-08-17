@@ -23,8 +23,7 @@ export const ROLE_LABELS = {
   admin: 'Platform administrator',
 };
 
-// Route × role matrix from the design. Later PRs consult this.
-// true = allowed; 'asg' / 'own' = assignment- or owner-scoped; false = 403.
+// Allow matrix: true | 'asg' | 'own' | false (403) | 'unauth' | 'public'.
 export const ROUTE_ROLES = [
   { method: 'POST', path: '/api/auth/login', fsm: 'unauth', manager: 'unauth', admin: 'unauth' },
   { method: 'POST', path: '/api/auth/logout', fsm: true, manager: true, admin: true },

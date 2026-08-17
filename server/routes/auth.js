@@ -47,7 +47,7 @@ export async function registerAuthRoutes(app) {
 
   app.get('/api/auth/me', async (request) => sessionPayload(request.fcSession));
 
-  // Tiny authenticated mutating stub so CSRF can be tested before other write APIs exist.
+  // Auth/CSRF probe.
   app.post('/api/ping', async () => ({ ok: true }));
 }
 
