@@ -46,8 +46,8 @@ test('GET /crm/1 is HTML', async (t) => {
   assertDocumentHeaders(res);
   const body = await res.text();
   assert.match(body, /id="app"/);
-  assert.match(body, /\/css\/app\.css/);
-  assert.match(body, /\/js\/app\.js/);
+  assert.match(body, /\/(?:css\/app\.css|assets\/css\/app-[a-f0-9]+\.css)/);
+  assert.match(body, /\/(?:js\/app\.js|assets\/js\/app-[a-f0-9]+\.js)/);
 });
 
 test('GET /css/app.css is text/css', async (t) => {

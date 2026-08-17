@@ -8,8 +8,11 @@ import {
   ORGS,
   PATHWAYS,
   STORY_BASE,
-} from '../../js/data.js';
+} from './prototype-data.js';
 import { hashPassword } from '../password.js';
+
+// Emails and phones in this fixture (and prototype-data.js) load only when
+// seedDemo() runs — SEED_DEMO=true. They are not part of the browser graph.
 
 export const DEMO_CLOCK = '2026-08-27T12:00:00-05:00';
 export const DEMO_TODAY = '2026-08-27';

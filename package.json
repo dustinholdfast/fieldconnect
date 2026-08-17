@@ -8,6 +8,7 @@
   },
   "scripts": {
     "start": "node server/index.js",
+    "build": "node scripts/build.js",
     "migrate": "node server/db.js",
     "seed": "node server/seed.js",
     "seed:admin": "node scripts/create-admin.js",

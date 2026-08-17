@@ -2,7 +2,7 @@
 
 High-fidelity interactive SPA that faithfully recreates the FieldConnect design handoff (all 10 workspaces, Classical design system, role-based navigation, and the interactions specified in the prototype).
 
-The Pilot runtime is a single Node.js (Fastify) process that serves the existing Classical SPA and a SQLite database. Session login is live; CRM APIs land in later work. The browser still reads `js/data.js` for screen content.
+The Pilot runtime is a single Node.js (Fastify) process that serves the existing Classical SPA and a SQLite database. Session login is live. The browser talks to `/api/*`; demo fixtures stay on the server.
 
 ## Features implemented
 
@@ -28,7 +28,7 @@ All sample data and copy match the original design prototype.
 
 ## Design system
 
-Classical tokens (colours, typography, spacing, radius, component classes) are loaded from `css/classical.css`. Application layout lives in `css/app.css`. Fonts: Cormorant Garamond (headings) + Lora (body) via Google Fonts.
+Classical tokens (colours, typography, spacing, radius, component classes) are loaded from `css/classical.css`. Application layout lives in `css/app.css`. Fonts: Cormorant Garamond (headings) + Lora (body) as self-hosted `woff2` under `fonts/` (OFL). There is no Google Fonts request.
 
 Layout target: desktop, min-width 1360 px (horizontal scroll on narrower viewports).
 
@@ -65,7 +65,7 @@ SQLite lives at `$FIELDCONNECT_DATA_DIR/fieldconnect.sqlite` (default `./data`, 
 
 ### Demo fixtures (`SEED_DEMO=true`)
 
-Compose sets `SEED_DEMO=true`. That writes fictional Twin Cities users and sample records. These are **fixtures**, not real people.
+Compose sets `SEED_DEMO=true`. That writes fictional Twin Cities users and sample records from `server/fixtures/demo.js`. These are **fixtures**, not real people. Demo emails and phones load **only** when `SEED_DEMO=true`; they are not shipped in the browser `js/` bundle (`test/no-pii-bundle.test.js` fails the build if `@mail.com` or Google Fonts appear there).
 
 | Email | Password | Role |
 | --- | --- | --- |
@@ -104,11 +104,14 @@ fieldconnect/
 ├── css/
 │   ├── classical.css   # Classical design-system tokens + components
 │   └── app.css         # FieldConnect shell & screen styles
+├── fonts/              # Cormorant Garamond + Lora woff2 (OFL)
 ├── js/
-│   ├── data.js         # All sample data (contacts, journeys, pathways…)
 │   ├── api.js          # fetch wrapper + CSRF header
 │   ├── app.js          # Session bootstrap, rendering, interactions
 │   └── screens/login.js
+├── scripts/
+│   ├── build.js        # content-hash css/js → assets/ + asset-manifest.json
+│   └── create-admin.js
 ├── server/
 │   ├── index.js        # Fastify listen, static prefixes, SPA fallback
 │   ├── health.js       # GET /healthz
@@ -119,9 +122,7 @@ fieldconnect/
 │   ├── clock.js        # demo_clock or wall clock
 │   ├── seed.js         # npm run seed
 │   ├── migrations/     # numbered SQL
-│   └── fixtures/demo.js
-├── scripts/
-│   └── create-admin.js # SEED_DEMO=false bootstrap
+│   └── fixtures/demo.js # emails load only when SEED_DEMO=true
 ├── data/               # gitignored sqlite + files
 ├── test/
 ├── Dockerfile
@@ -133,7 +134,7 @@ fieldconnect/
 
 ## Architecture notes
 
-The browser still runs the vanilla JS SPA (`js/app.js` + `js/data.js`). Fastify serves `/css` and `/js` as static files and returns `index.html` for other document GETs so History API routes such as `/crm/1` can refresh. Missing files under `/css`, `/js`, `/fonts`, and `/assets` return 404 (never the SPA shell). On boot the process opens SQLite, applies `server/migrations/*.sql`, and seeds when `SEED_DEMO=true`.
+The browser runs the vanilla JS SPA (`js/app.js`). Fastify serves `/css`, `/js`, `/fonts`, `/shared`, and `/assets` as static files and returns `index.html` for other document GETs so History API routes such as `/crm/1` can refresh. Missing files under those prefixes return 404 (never the SPA shell). `npm run build` (and the Docker image) content-hashes JS/CSS into `/assets/*-<hash>.*` with `Cache-Control: immutable`; unhashed `/css` and `/js` stay short-cache. Every response includes CSP (`script-src 'self'; style-src 'self'`) plus nosniff / SAMEORIGIN / strict-origin-when-cross-origin. On boot the process opens SQLite, applies `server/migrations/*.sql`, and seeds when `SEED_DEMO=true`.
 
 The client calls `GET /api/auth/me` on boot. A 401 sends the browser to `/login?next=`. After login, navigation goes to `next` or `/dashboard`, and the user chip / nav come from the session — the role switcher is not rendered. Unauthenticated `/api/*` (except login/logout) returns `401 unauthenticated`. `GET /metrics` is an admin-only stub.
 

@@ -1,4 +1,4 @@
-import { existsSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
 import { readFile } from 'node:fs/promises';
 import { dirname, join } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
@@ -29,6 +29,49 @@ const rootDir = join(dirname(fileURLToPath(import.meta.url)), '..');
 
 // Missing files under these prefixes must 404 — never index.html.
 const STATIC_PREFIXES = ['/css/', '/js/', '/fonts/', '/assets/', '/shared/'];
+
+const CSP = [
+  "default-src 'self'",
+  "script-src 'self'",
+  "style-src 'self'",
+  "font-src 'self'",
+  "img-src 'self' data:",
+  "connect-src 'self'",
+  "frame-ancestors 'none'",
+  "base-uri 'self'",
+  "form-action 'self'",
+].join('; ');
+
+function loadAssetManifest() {
+  const p = join(rootDir, 'asset-manifest.json');
+  if (!existsSync(p)) return null;
+  try {
+    return JSON.parse(readFileSync(p, 'utf8'));
+  } catch {
+    return null;
+  }
+}
+
+function applyAssetManifest(html, manifest) {
+  if (!manifest) return html;
+  let out = Buffer.isBuffer(html) ? html.toString('utf8') : String(html);
+  const keys = Object.keys(manifest).sort((a, b) => b.length - a.length);
+  for (const from of keys) {
+    const to = manifest[from];
+    if (typeof to !== 'string') continue;
+    out = out.split(from).join(to);
+  }
+  return out;
+}
+
+// Immutable only on content-hashed filenames (…-<12 hex>.ext).
+function cacheControlForFile(filePath) {
+  const base = String(filePath).split(/[/\\]/).pop() || '';
+  if (/-[a-f0-9]{8,}\.[a-z0-9]+$/i.test(base)) {
+    return 'public, max-age=31536000, immutable';
+  }
+  return 'public, max-age=300';
+}
 
 function pathnameOf(url) {
   const q = url.indexOf('?');
@@ -70,10 +113,18 @@ export async function buildApp(opts = {}) {
     await seedDemo(db);
   }
 
-  app.addHook('onSend', async (_request, reply, payload) => {
+  const assetManifest = loadAssetManifest();
+
+  app.addHook('onSend', async (request, reply, payload) => {
     reply.header('X-Content-Type-Options', 'nosniff');
     reply.header('X-Frame-Options', 'SAMEORIGIN');
     reply.header('Referrer-Policy', 'strict-origin-when-cross-origin');
+    reply.header('Content-Security-Policy', CSP);
+    const pathname = pathnameOf(request.url);
+    if (isStaticPath(pathname)) {
+      // Set after @fastify/static — its default max-age=0 overwrites setHeaders.
+      reply.header('Cache-Control', cacheControlForFile(pathname));
+    }
     return payload;
   });
 
@@ -114,6 +165,8 @@ export async function buildApp(opts = {}) {
       root: dir,
       prefix: `/${name}/`,
       decorateReply: false,
+      maxAge: name === 'assets' ? 31536000 * 1000 : 300 * 1000,
+      immutable: name === 'assets',
     });
   }
 
@@ -125,7 +178,7 @@ export async function buildApp(opts = {}) {
       return reply.code(404).type('application/json; charset=utf-8').send({ error: { code: 'not_found' } });
     }
     if (request.method === 'GET' && !isStaticPath(pathname)) {
-      const html = await readFile(join(rootDir, 'index.html'));
+      const html = applyAssetManifest(await readFile(join(rootDir, 'index.html')), assetManifest);
       return reply.type('text/html; charset=utf-8').send(html);
     }
     return reply.code(404).type('text/plain; charset=utf-8').send('Not Found');

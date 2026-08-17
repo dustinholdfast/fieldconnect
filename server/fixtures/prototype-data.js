@@ -1,4 +1,4 @@
-// Sample data extracted from the FieldConnect design prototype
+// Server-only prototype dump. Loaded by seedDemo() when SEED_DEMO=true — not served under /js/.
 
 export const SCREENS = [
   { id: 'dashboard', label: 'Dashboard', kicker: 'Reporting', title: 'Funnel and outcomes' },
