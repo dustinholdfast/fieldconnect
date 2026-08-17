@@ -9,7 +9,8 @@ import { buildApp } from '../server/index.js';
 const CSP_REQUIRED = [
   "default-src 'self'",
   "script-src 'self'",
-  "style-src 'self'",
+  "style-src-elem 'self'",
+  "style-src-attr 'unsafe-inline'",
   "font-src 'self'",
   "img-src 'self' data:",
   "connect-src 'self'",
@@ -39,6 +40,7 @@ function assertSecurityHeaders(res) {
   assert.doesNotMatch(csp, /fonts\.googleapis\.com/i);
   assert.doesNotMatch(csp, /fonts\.gstatic\.com/i);
   assert.doesNotMatch(csp, /unsafe-eval/i);
+  assert.doesNotMatch(csp, /(?:^|; )style-src 'self'(?:;|$)/);
 }
 
 test('GET / sends CSP, nosniff, frame, and referrer headers', async (t) => {
@@ -92,4 +94,13 @@ test('hashed assets are immutable; unhashed /css /js are not', async (t) => {
     const cc = res.headers.get('cache-control') ?? '';
     assert.doesNotMatch(cc, /immutable/, path);
   }
+});
+
+test('static 404s are not immutable', async (t) => {
+  const { base } = await listen(t);
+  const res = await fetch(`${base}/assets/js/app-deadbeefdead.js`);
+  assert.equal(res.status, 404);
+  const cc = res.headers.get('cache-control') ?? '';
+  assert.doesNotMatch(cc, /immutable/);
+  assert.match(cc, /no-store/);
 });

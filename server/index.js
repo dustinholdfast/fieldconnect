@@ -33,7 +33,10 @@ const STATIC_PREFIXES = ['/css/', '/js/', '/fonts/', '/assets/', '/shared/'];
 const CSP = [
   "default-src 'self'",
   "script-src 'self'",
-  "style-src 'self'",
+  // Screens still emit style="…" (funnel widths, sticky CRM panel). style-src
+  // 'self' would strip those; allow attributes only, keep stylesheets on self.
+  "style-src-elem 'self'",
+  "style-src-attr 'unsafe-inline'",
   "font-src 'self'",
   "img-src 'self' data:",
   "connect-src 'self'",
@@ -122,8 +125,10 @@ export async function buildApp(opts = {}) {
     reply.header('Content-Security-Policy', CSP);
     const pathname = pathnameOf(request.url);
     if (isStaticPath(pathname)) {
-      // Set after @fastify/static — its default max-age=0 overwrites setHeaders.
-      reply.header('Cache-Control', cacheControlForFile(pathname));
+      // Immutable only on 2xx hashed files. A 404 for a stale hash must not
+      // be cached for a year (@fastify/static default max-age=0 is overwritten here).
+      const ok = reply.statusCode >= 200 && reply.statusCode < 300;
+      reply.header('Cache-Control', ok ? cacheControlForFile(pathname) : 'no-store');
     }
     return payload;
   });
