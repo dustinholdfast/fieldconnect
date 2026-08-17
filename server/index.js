@@ -5,9 +5,11 @@ import { fileURLToPath, pathToFileURL } from 'node:url';
 import cookie from '@fastify/cookie';
 import fastifyStatic from '@fastify/static';
 import Fastify from 'fastify';
+import { attachSession, enforceApiAuth, registerAuth } from './auth.js';
 import { openDatabase } from './db.js';
 import { seedDemo } from './fixtures/demo.js';
 import { registerHealth } from './health.js';
+import { registerAuthRoutes, registerMetrics } from './routes/auth.js';
 
 const rootDir = join(dirname(fileURLToPath(import.meta.url)), '..');
 
@@ -55,7 +57,10 @@ export async function buildApp(opts = {}) {
   });
 
   await app.register(cookie);
+  registerAuth(app);
   await registerHealth(app);
+  await registerAuthRoutes(app);
+  registerMetrics(app);
 
   for (const name of ['css', 'js', 'fonts', 'assets']) {
     const dir = join(rootDir, name);
@@ -69,7 +74,12 @@ export async function buildApp(opts = {}) {
 
   app.setNotFoundHandler(async (request, reply) => {
     const pathname = pathnameOf(request.url);
-    if (request.method === 'GET' && !isStaticPath(pathname) && !isApiPath(pathname)) {
+    if (isApiPath(pathname) || pathname === '/metrics') {
+      if (!request.fcSession) attachSession(app.db, request, reply);
+      if (enforceApiAuth(request, reply)) return;
+      return reply.code(404).type('application/json; charset=utf-8').send({ error: { code: 'not_found' } });
+    }
+    if (request.method === 'GET' && !isStaticPath(pathname)) {
       const html = await readFile(join(rootDir, 'index.html'));
       return reply.type('text/html; charset=utf-8').send(html);
     }

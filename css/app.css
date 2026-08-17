@@ -764,6 +764,69 @@ html, body {
   color: var(--ok);
 }
 
+.hidden {
+  display: none !important;
+}
+
+/* Login (no shell) */
+.fc-root.fc-login-page {
+  min-width: 0;
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  background: var(--color-bg);
+}
+
+.fc-login {
+  width: 100%;
+  max-width: 360px;
+}
+
+.fc-login .fc-brand-name {
+  color: var(--color-text);
+  text-align: center;
+  font-size: 32px;
+}
+
+.fc-login .kicker {
+  text-align: center;
+  font-size: 11px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--color-accent-700);
+  margin: 6px 0 24px;
+}
+
+.fc-login .fc-field {
+  margin-bottom: 14px;
+}
+
+.fc-login .fc-field input[type="email"],
+.fc-login .fc-field input[type="password"] {
+  width: 100%;
+  min-height: 36px;
+  padding: 6px 10px;
+  font: inherit;
+  font-size: 14px;
+  color: var(--color-text);
+  background: transparent;
+  border: 1px solid var(--color-divider);
+  border-radius: 4px;
+}
+
+.fc-login .btn-primary {
+  width: 100%;
+  margin-top: 8px;
+}
+
+#login-error {
+  color: var(--bad);
+  font-size: 13px;
+  margin-top: 12px;
+}
+
 /* Ensure buttons look right */
 button.btn {
   font-family: var(--font-heading);

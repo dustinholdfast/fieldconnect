@@ -2,6 +2,8 @@ import {
   SCREENS, ROLE_SCREENS, ROLES, CONTACTS, PATHWAYS, JOURNEYS,
   COURSES, STAGE_ORDER, STORY_BASE, APPTS, MAPPING, IMPORTS, ORGS, ROLES_TABLE
 } from './data.js';
+import { api, setCsrfToken } from './api.js';
+import { mount as mountLogin, render as renderLogin } from './screens/login.js';
 
 const ACCENT = '#b68235';
 const OK = '#5f7a4a';
@@ -10,6 +12,8 @@ const BAD = '#8c4a3a';
 
 const state = {
   role: 'manager',
+  user: null,
+  org: null,
   screen: 'dashboard',
   contactIdx: 0,
   stageFilter: 'All',
@@ -58,11 +62,13 @@ function statusColor(s) {
 }
 
 function render() {
-  const role = ROLES.find(r => r.id === state.role);
-  const allowed = ROLE_SCREENS[state.role];
+  const role = ROLES.find(r => r.id === state.role) || ROLES[0];
+  const allowed = ROLE_SCREENS[state.role] || ROLE_SCREENS.fsm;
   let screenId = allowed.includes(state.screen) ? state.screen : allowed[0];
   if (state.screen !== screenId) state.screen = screenId;
   const screen = SCREENS.find(s => s.id === screenId);
+  const user = state.user || {};
+  const orgName = (state.org && state.org.name) || 'Church of Scientology of Twin Cities';
 
   const navItems = SCREENS
     .filter(s => allowed.includes(s.id))
@@ -73,14 +79,10 @@ function render() {
         '<span>' + esc(s.label) + '</span></div>';
     }).join('');
 
-  const roleOpts = ROLES.map(r =>
-    '<button class="fc-role-opt ' + (r.id === state.role ? 'active' : '') + '" data-role="' + r.id + '">' +
-    esc(r.label) + '</button>'
-  ).join('');
-
   const content = renderScreen(screenId);
-
-  document.getElementById('app').innerHTML =
+  const root = document.getElementById('app');
+  root.className = 'fc-root';
+  root.innerHTML =
     '<aside class="fc-sidebar">' +
       '<div class="fc-brand">' +
         '<div class="fc-brand-name">FieldConnect</div>' +
@@ -88,7 +90,7 @@ function render() {
       '</div>' +
       '<nav class="fc-nav">' + navItems + '</nav>' +
       '<div class="fc-sidebar-footer">' +
-        '<div class="fc-org-name">Church of Scientology of Twin Cities</div>' +
+        '<div class="fc-org-name">' + esc(orgName) + '</div>' +
         '<div class="fc-sync">MetaPulse sync — ' + (state.adapterOn ? 'API adapter live' : 'file exchange') + '</div>' +
       '</div>' +
     '</aside>' +
@@ -99,11 +101,10 @@ function render() {
           '<h2>' + esc(screen.title) + '</h2>' +
         '</div>' +
         '<div class="fc-header-right">' +
-          '<div class="fc-role-switcher">' + roleOpts + '</div>' +
           '<div class="fc-user-chip">' +
-            '<div class="fc-avatar">' + esc(role.initials) + '</div>' +
+            '<div class="fc-avatar">' + esc(user.initials || role.initials) + '</div>' +
             '<div class="fc-user-meta">' +
-              '<div class="fc-user-name">' + esc(role.name) + '</div>' +
+              '<div class="fc-user-name">' + esc(user.displayName || role.name) + '</div>' +
               '<div class="fc-user-role">' + esc(role.full) + '</div>' +
             '</div>' +
           '</div>' +
@@ -118,9 +119,6 @@ function render() {
 function bindEvents() {
   document.querySelectorAll('[data-go]').forEach(el => {
     el.addEventListener('click', () => setState({ screen: el.dataset.go }));
-  });
-  document.querySelectorAll('[data-role]').forEach(el => {
-    el.addEventListener('click', () => setState({ role: el.dataset.role }));
   });
   const search = document.getElementById('crm-search');
   if (search) search.addEventListener('input', e => setState({ crmQuery: e.target.value }));
@@ -691,4 +689,75 @@ function renderAdmin() {
   return html;
 }
 
-render();
+function applySession(payload) {
+  setCsrfToken(payload.csrfToken);
+  state.user = payload.user;
+  state.org = payload.org;
+  state.role = payload.user.role;
+}
+
+function safeNext(raw) {
+  if (typeof raw !== 'string' || !raw.startsWith('/') || raw.startsWith('//') || raw.includes('\\')) {
+    return '/dashboard';
+  }
+  if (raw === '/login' || raw.startsWith('/login?')) return '/dashboard';
+  return raw;
+}
+
+function screenFromPath(pathname, role) {
+  const id = String(pathname || '/').replace(/^\//, '').split('/')[0] || 'dashboard';
+  const allowed = ROLE_SCREENS[role] || [];
+  if (allowed.includes(id)) return id;
+  return allowed[0] || 'dashboard';
+}
+
+function showLogin() {
+  const root = document.getElementById('app');
+  root.className = 'fc-root fc-login-page';
+  root.innerHTML = renderLogin();
+  mountLogin(root, {
+    onSuccess(payload) {
+      applySession(payload);
+      const next = safeNext(new URLSearchParams(location.search).get('next'));
+      history.replaceState({}, '', next);
+      state.screen = screenFromPath(location.pathname, state.role);
+      render();
+    },
+  });
+}
+
+async function fetchMe() {
+  try {
+    const res = await api('/api/auth/me');
+    if (!res.ok) return null;
+    return res.json();
+  } catch {
+    return null;
+  }
+}
+
+async function boot() {
+  const onLogin = location.pathname === '/login';
+  const me = await fetchMe();
+  if (onLogin) {
+    if (me) {
+      applySession(me);
+      history.replaceState({}, '', '/dashboard');
+      state.screen = 'dashboard';
+      render();
+      return;
+    }
+    showLogin();
+    return;
+  }
+  if (!me) {
+    const next = location.pathname + location.search || '/dashboard';
+    location.replace('/login?next=' + encodeURIComponent(next));
+    return;
+  }
+  applySession(me);
+  state.screen = screenFromPath(location.pathname, state.role);
+  render();
+}
+
+boot();

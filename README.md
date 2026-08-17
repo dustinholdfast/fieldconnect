@@ -2,12 +2,14 @@
 
 High-fidelity interactive SPA that faithfully recreates the FieldConnect design handoff (all 10 workspaces, Classical design system, role-based navigation, and the interactions specified in the prototype).
 
-The Pilot runtime is a single Node.js (Fastify) process that serves the existing Classical SPA and a SQLite database. Login and CRM APIs land in later work. The browser still reads `js/data.js`.
+The Pilot runtime is a single Node.js (Fastify) process that serves the existing Classical SPA and a SQLite database. Session login is live; CRM APIs land in later work. The browser still reads `js/data.js` for screen content.
 
 ## Features implemented
 
-- **Global shell**: fixed 244 px sidebar, role-aware nav, header with role switcher + user chip, MetaPulse sync status
-- **Role scoping**:
+- **Session auth**: cookie `fc_session` (HttpOnly, SameSite=Lax, Path=/; `Secure` only when `NODE_ENV=production`), 12-hour sliding TTL on every authenticated `/api/*` request, CSRF via `X-CSRF-Token`
+- **Login screen** at `/login` (no shell). Unauthenticated visits redirect to `/login?next=`. There is **no role switcher** — `state.role` comes from the session user.
+- **Global shell**: fixed 244 px sidebar, role-aware nav, header with user chip from the session, MetaPulse sync status
+- **Role scoping** (from `users.role` / `ROLE_SCREENS`):
   - FSM (D. Whitfield) — Dashboard, Attendee CRM (own contacts only), Scheduling, Outcome form, Training
   - Campaign manager / host (A. Reyes) — Dashboard, CRM, Scheduling, Nurture, Division 6 lists, Training, Recruitment, Success line
   - Platform admin (M. Okafor) — all ten workspaces
@@ -71,9 +73,13 @@ Compose sets `SEED_DEMO=true`. That writes fictional Twin Cities users and sampl
 | `host@twincities.example` | `demo-host-2026` | Host / campaign manager |
 | `admin@twincities.example` | `demo-admin-2026` | Admin |
 
-Inactive FSM rows (`lindgren@twincities.example`, `okonjo@twincities.example`) exist so seeded appointments have owners. They cannot log in (PR 3 treats them like a bad password).
+Inactive FSM rows (`lindgren@twincities.example`, `okonjo@twincities.example`) exist so seeded appointments have owners. They cannot log in — the API returns the same `401 { error: { code: "invalid_credentials" } }` as a bad password.
 
 Password hashes are `scrypt$16384$8$1$<saltB64>$<hashB64>` (N=16384, r=8, p=1, keylen=32, 16-byte salt).
+
+Login is rate-limited to **5 failures / 15 minutes / email+IP** in an in-memory `Map`. The limiter **resets on process restart** (including Compose `restart: unless-stopped`). A sixth failure in the window returns `429 { error: { code: "rate_limited" } }`.
+
+Demo credentials are documented here only. The login screen does not show them, and there is no production role switcher.
 
 With `SEED_DEMO=true`, `server/clock.js` reads `app_meta.demo_clock` (`2026-08-27T12:00:00-05:00`) instead of the wall clock.
 
@@ -100,10 +106,15 @@ fieldconnect/
 │   └── app.css         # FieldConnect shell & screen styles
 ├── js/
 │   ├── data.js         # All sample data (contacts, journeys, pathways…)
-│   └── app.js          # State, rendering, interactions
+│   ├── api.js          # fetch wrapper + CSRF header
+│   ├── app.js          # Session bootstrap, rendering, interactions
+│   └── screens/login.js
 ├── server/
 │   ├── index.js        # Fastify listen, static prefixes, SPA fallback
 │   ├── health.js       # GET /healthz
+│   ├── auth.js         # Sessions, CSRF, login limiter
+│   ├── rbac.js         # ROLE_SCREENS + route × role matrix
+│   ├── routes/auth.js  # /api/auth/login|logout|me
 │   ├── db.js           # SQLite open, migrate, withOrg
 │   ├── clock.js        # demo_clock or wall clock
 │   ├── seed.js         # npm run seed
@@ -123,6 +134,8 @@ fieldconnect/
 ## Architecture notes
 
 The browser still runs the vanilla JS SPA (`js/app.js` + `js/data.js`). Fastify serves `/css` and `/js` as static files and returns `index.html` for other document GETs so History API routes such as `/crm/1` can refresh. Missing files under `/css`, `/js`, `/fonts`, and `/assets` return 404 (never the SPA shell). On boot the process opens SQLite, applies `server/migrations/*.sql`, and seeds when `SEED_DEMO=true`.
+
+The client calls `GET /api/auth/me` on boot. A 401 sends the browser to `/login?next=`. After login, navigation goes to `next` or `/dashboard`, and the user chip / nav come from the session — the role switcher is not rendered. Unauthenticated `/api/*` (except login/logout) returns `401 unauthenticated`. `GET /metrics` is an admin-only stub.
 
 `nginx.conf` is retained as an optional TLS edge example. It is not required to run the Pilot process.
 
