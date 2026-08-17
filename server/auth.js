@@ -1,5 +1,5 @@
 import { randomBytes } from 'node:crypto';
-import { screensForRole } from './rbac.js';
+import { allowRoute, screensForRole } from './rbac.js';
 
 export const COOKIE_NAME = 'fc_session';
 export const SESSION_TTL_MS = 12 * 60 * 60 * 1000;
@@ -212,6 +212,8 @@ export function enforceApiAuth(request, reply) {
       return sendError(reply, 403, 'csrf');
     }
   }
+  const allow = allowRoute(request.fcSession.role, request.method, pathname);
+  if (allow === false) return sendError(reply, 403, 'forbidden');
   return false;
 }
 

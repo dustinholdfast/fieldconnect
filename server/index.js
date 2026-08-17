@@ -10,6 +10,7 @@ import { openDatabase } from './db.js';
 import { seedDemo } from './fixtures/demo.js';
 import { registerHealth } from './health.js';
 import { registerAuthRoutes, registerMetrics } from './routes/auth.js';
+import { registerPeopleRoutes } from './routes/people.js';
 
 const rootDir = join(dirname(fileURLToPath(import.meta.url)), '..');
 
@@ -62,6 +63,7 @@ export async function buildApp(opts = {}) {
   registerAuth(app);
   await registerHealth(app);
   await registerAuthRoutes(app);
+  await registerPeopleRoutes(app);
   registerMetrics(app);
 
   for (const name of ['css', 'js', 'fonts', 'assets']) {

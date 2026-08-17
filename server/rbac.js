@@ -37,6 +37,7 @@ export const ROUTE_ROLES = [
   { method: 'GET', path: '/api/people/:id/engagements', fsm: 'asg', manager: true, admin: true },
   { method: 'GET', path: '/api/scheduling/summary', fsm: 'own', manager: true, admin: true },
   { method: 'GET', path: '/api/scheduling/slots', fsm: 'own', manager: true, admin: true },
+  { method: 'GET', path: '/api/scheduling/offer/:token', fsm: 'own', manager: true, admin: true },
   { method: 'GET', path: '/api/appointments', fsm: 'own', manager: true, admin: true },
   { method: 'POST', path: '/api/appointments', fsm: 'own', manager: true, admin: true },
   { method: 'GET', path: '/api/appointments/:id', fsm: 'own', manager: true, admin: true },

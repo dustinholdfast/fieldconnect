@@ -306,6 +306,9 @@ a.fc-nav-item:visited {
 
 .fc-field select,
 .fc-field input[type="text"],
+.fc-field input[type="email"],
+.fc-field input[type="tel"],
+.fc-field input[type="search"],
 .fc-field input[type="number"],
 .fc-field input[type="date"],
 .fc-field textarea {
@@ -754,6 +757,47 @@ a.fc-nav-item:visited {
 
 .hidden {
   display: none !important;
+}
+
+.dialog.fc-drawer {
+  width: min(520px, 100%);
+}
+
+.fc-note {
+  font-size: 12.5px;
+  margin-top: 10px;
+}
+
+.fc-note.ok { color: var(--ok); }
+.fc-note.bad { color: var(--bad); }
+
+.fc-field-error {
+  color: var(--bad);
+  font-size: 12px;
+  margin-top: 4px;
+}
+
+.fc-merge-results {
+  max-height: 200px;
+  overflow-y: auto;
+  border: 1px solid var(--color-divider);
+  border-radius: 4px;
+}
+
+.fc-merge-row {
+  display: block;
+  width: 100%;
+  text-align: left;
+  padding: 8px 10px;
+  border: 0;
+  background: transparent;
+  font: inherit;
+  cursor: pointer;
+}
+
+.fc-merge-row:hover,
+.fc-merge-row.selected {
+  background: color-mix(in srgb, var(--color-accent) 12%, transparent);
 }
 
 /* Login (no shell) */

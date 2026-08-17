@@ -17,7 +17,17 @@ function report(err) {
   errorHandler?.(err);
 }
 
-export async function api(path, { method = 'GET', body, headers, silent = false } = {}) {
+export async function apiJson(path, opts = {}) {
+  const res = await api(path, opts);
+  const text = await res.text();
+  let data = null;
+  if (text) {
+    try { data = JSON.parse(text); } catch { data = null; }
+  }
+  return { ok: res.ok, status: res.status, data, res };
+}
+
+export async function api(path, { method = 'GET', body, headers, silent = false, signal } = {}) {
   const verb = method.toUpperCase();
   const nextHeaders = { ...headers };
   const mutating = verb !== 'GET' && verb !== 'HEAD' && verb !== 'OPTIONS';
@@ -27,12 +37,13 @@ export async function api(path, { method = 'GET', body, headers, silent = false 
   if (body != null && !nextHeaders['Content-Type']) {
     nextHeaders['Content-Type'] = 'application/json';
   }
-  const retry = () => api(path, { method, body, headers, silent });
+  const retry = () => api(path, { method, body, headers, silent, signal });
   try {
     const res = await fetch(path, {
       method: verb,
       headers: nextHeaders,
       credentials: 'same-origin',
+      signal,
       body: body == null ? undefined : typeof body === 'string' ? body : JSON.stringify(body),
     });
     if (!silent && !res.ok) {
