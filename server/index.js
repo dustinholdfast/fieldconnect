@@ -5,6 +5,8 @@ import { fileURLToPath, pathToFileURL } from 'node:url';
 import cookie from '@fastify/cookie';
 import fastifyStatic from '@fastify/static';
 import Fastify from 'fastify';
+import { openDatabase } from './db.js';
+import { seedDemo } from './fixtures/demo.js';
 import { registerHealth } from './health.js';
 
 const rootDir = join(dirname(fileURLToPath(import.meta.url)), '..');
@@ -32,6 +34,18 @@ export async function buildApp(opts = {}) {
   const app = Fastify({
     logger: opts.logger ?? false,
   });
+
+  const db = opts.db ?? openDatabase(opts.dataDir);
+  app.decorate('db', db);
+  app.addHook('onClose', (_instance, done) => {
+    if (!opts.db) {
+      try { db.close(); } catch { /* already closed */ }
+    }
+    done();
+  });
+  if (opts.seed ?? process.env.SEED_DEMO === 'true') {
+    await seedDemo(db);
+  }
 
   app.addHook('onSend', async (_request, reply, payload) => {
     reply.header('X-Content-Type-Options', 'nosniff');

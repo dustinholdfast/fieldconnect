@@ -1,9 +1,14 @@
 import assert from 'node:assert/strict';
+import { mkdtempSync, rmSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import { test } from 'node:test';
 import { buildApp } from '../server/index.js';
 
 async function listen(t) {
-  const app = await buildApp({ logger: false });
+  const dataDir = mkdtempSync(join(tmpdir(), 'fc-static-'));
+  t.after(() => rmSync(dataDir, { recursive: true, force: true }));
+  const app = await buildApp({ logger: false, dataDir });
   await app.listen({ host: '127.0.0.1', port: 0 });
   t.after(() => app.close());
   const { port } = app.server.address();
