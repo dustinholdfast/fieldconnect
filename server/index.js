@@ -1,0 +1,82 @@
+import { existsSync } from 'node:fs';
+import { readFile } from 'node:fs/promises';
+import { dirname, join } from 'node:path';
+import { fileURLToPath, pathToFileURL } from 'node:url';
+import cookie from '@fastify/cookie';
+import fastifyStatic from '@fastify/static';
+import Fastify from 'fastify';
+import { registerHealth } from './health.js';
+
+const rootDir = join(dirname(fileURLToPath(import.meta.url)), '..');
+
+// Missing files under these prefixes must 404 — never index.html.
+const STATIC_PREFIXES = ['/css/', '/js/', '/fonts/', '/assets/'];
+
+function pathnameOf(url) {
+  const q = url.indexOf('?');
+  return q === -1 ? url : url.slice(0, q);
+}
+
+function isStaticPath(pathname) {
+  return STATIC_PREFIXES.some((prefix) => {
+    const dir = prefix.slice(0, -1);
+    return pathname === dir || pathname.startsWith(prefix);
+  });
+}
+
+function isApiPath(pathname) {
+  return pathname === '/api' || pathname.startsWith('/api/');
+}
+
+export async function buildApp(opts = {}) {
+  const app = Fastify({
+    logger: opts.logger ?? false,
+  });
+
+  app.addHook('onSend', async (_request, reply, payload) => {
+    reply.header('X-Content-Type-Options', 'nosniff');
+    reply.header('X-Frame-Options', 'SAMEORIGIN');
+    reply.header('Referrer-Policy', 'strict-origin-when-cross-origin');
+    return payload;
+  });
+
+  await app.register(cookie);
+  await registerHealth(app);
+
+  for (const name of ['css', 'js', 'fonts', 'assets']) {
+    const dir = join(rootDir, name);
+    if (!existsSync(dir)) continue;
+    await app.register(fastifyStatic, {
+      root: dir,
+      prefix: `/${name}/`,
+      decorateReply: false,
+    });
+  }
+
+  app.setNotFoundHandler(async (request, reply) => {
+    const pathname = pathnameOf(request.url);
+    if (request.method === 'GET' && !isStaticPath(pathname) && !isApiPath(pathname)) {
+      const html = await readFile(join(rootDir, 'index.html'));
+      return reply.type('text/html; charset=utf-8').send(html);
+    }
+    return reply.code(404).type('text/plain; charset=utf-8').send('Not Found');
+  });
+
+  return app;
+}
+
+async function main() {
+  const port = Number.parseInt(process.env.PORT ?? '8080', 10);
+  const app = await buildApp({ logger: true });
+  try {
+    await app.listen({ port, host: '0.0.0.0' });
+  } catch (err) {
+    app.log.error(err);
+    process.exit(1);
+  }
+}
+
+const entry = process.argv[1];
+if (entry && import.meta.url === pathToFileURL(entry).href) {
+  await main();
+}

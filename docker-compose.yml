@@ -4,11 +4,26 @@ services:
     image: fieldconnect:latest
     container_name: fieldconnect
     ports:
-      - "8080:80"
+      - "8080:8080"
     restart: unless-stopped
-    # Resource limits suitable for a static SPA
+    environment:
+      NODE_ENV: development
+      FIELDCONNECT_DATA_DIR: /data
+      SESSION_SECRET: dev-insecure-change-me
+      SEED_DEMO: "true"
+    volumes:
+      - fieldconnect-data:/data
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://127.0.0.1:8080/healthz"]
+      interval: 30s
+      timeout: 3s
+      retries: 3
+      start_period: 5s
     deploy:
       resources:
         limits:
-          cpus: "0.50"
-          memory: 128M
+          cpus: "1.0"
+          memory: 512M
+
+volumes:
+  fieldconnect-data:
