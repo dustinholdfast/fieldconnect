@@ -116,6 +116,14 @@ test('seed includes eight hero people, N. Brooks overdue appointment, catalog, a
     { sku: 'dn-book', list_price_cents: 2500 },
     { sku: 'dn-seminar', list_price_cents: 5000 },
   ]);
+
+  const elena = db.prepare("SELECT journey_key, stage FROM people WHERE display_name = 'Elena Duarte'").get();
+  assert.equal(elena.stage, 'Interested');
+  assert.equal(elena.journey_key, 'j1');
+
+  const avail = db.prepare('SELECT weekday_mask FROM availability_rules').get();
+  assert.equal(avail.weekday_mask & (1 << 6), 1 << 6);
+  assert.equal(avail.weekday_mask, 126);
 });
 
 test('seed is idempotent', async (t) => {

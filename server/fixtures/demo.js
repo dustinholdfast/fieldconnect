@@ -65,8 +65,7 @@ const JOURNEY_KEY_BY_LABEL = {
   'No-show recovery': 'j2',
   'Book buyer': 'j4',
   'DN Seminar buyer': 'j5',
-  'Interested, unbooked': 'j6',
-  'Interested but unqualified': 'j6',
+  'Interested, unbooked': 'j1',
 };
 
 const SUPPORTING_PEOPLE = [
@@ -411,7 +410,7 @@ export async function seedDemo(db) {
 
     const stages = ['Registered', 'Attended', 'Scheduled', 'Interested', 'Completed'];
     SUPPORTING_PEOPLE.forEach(([first, last, email], i) => {
-      const display = first.endsWith('.') ? `${first} ${last}` : `${first} ${last}`;
+      const display = `${first} ${last}`;
       insertPerson(db, twin, {
         first_name: first,
         last_name: last,
@@ -584,7 +583,7 @@ export async function seedDemo(db) {
         INSERT INTO availability_rules (
           org_id, timezone, work_start, work_end, duration_min, buffer_min,
           min_notice_hours, max_per_day, weekday_mask
-        ) VALUES (?, 'America/Chicago', '09:00', '19:00', 45, 15, 12, 4, 62)
+        ) VALUES (?, 'America/Chicago', '09:00', '19:00', 45, 15, 12, 4, 126)
       `).run(twin);
     }
   });
