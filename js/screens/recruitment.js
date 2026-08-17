@@ -18,10 +18,13 @@ function boardHtml(board) {
   });
   html += '</div><div class="fc-pipeline">';
   cols.forEach((c) => {
-    html += '<div class="fc-pipe-col"><div class="fc-pipe-head">' + esc(c.name) + '</div>' +
+    html += '<div class="fc-pipe-col" data-stage="' + esc(c.name) + '"><div class="fc-pipe-head">' + esc(c.name) + '</div>' +
       '<div class="fc-pipe-count">' + esc(c.count) + ' candidates</div>';
     (c.candidates || []).forEach((cand) => {
-      html += '<div class="fc-cand"><div>' + esc(cand.name) + '</div><div class="fc-cand-meta">' + esc(cand.source) + '</div></div>';
+      html += '<div class="fc-cand" draggable="true" data-id="' + cand.id + '" data-stage="' + esc(c.name) + '">' +
+        '<div>' + esc(cand.name) + '</div><div class="fc-cand-meta">' + esc(cand.source) + '</div>' +
+        '<button class="btn btn-ghost" type="button" data-advance="' + cand.id + '" style="font-size:11px;margin-top:6px">Advance</button>' +
+        '</div>';
     });
     html += '</div>';
   });
@@ -36,7 +39,7 @@ function boardHtml(board) {
       '<td class="fc-tnum">' + esc(w.activated) + '</td></tr>';
   });
   html += '</tbody></table>' +
-    '<p class="text-muted" style="font-size:12.5px;margin-top:16px">Drag and stage advance are Wave 3. This board is read-only.</p>';
+    '<p class="text-muted" style="font-size:12.5px;margin-top:16px">Drag a card onto another column, or use Advance, to persist the stage.</p>';
   return html;
 }
 
@@ -54,7 +57,44 @@ async function load(el, signal) {
 
 export function mount(el) {
   abort = new AbortController();
-  load(el, abort.signal).catch(() => {});
+  const signal = abort.signal;
+  load(el, signal).catch(() => {});
+
+  el.addEventListener('click', async (e) => {
+    const btn = e.target.closest('[data-advance]');
+    if (!btn) return;
+    btn.disabled = true;
+    await apiJson('/api/recruitment/candidates/' + btn.dataset.advance + '/advance', {
+      method: 'POST', body: {}, signal,
+    });
+    await load(el, signal);
+  }, { signal });
+
+  el.addEventListener('dragstart', (e) => {
+    const card = e.target.closest('.fc-cand[data-id]');
+    if (!card) return;
+    e.dataTransfer.setData('text/plain', card.dataset.id);
+    e.dataTransfer.effectAllowed = 'move';
+  }, { signal });
+
+  el.addEventListener('dragover', (e) => {
+    if (!e.target.closest('.fc-pipe-col')) return;
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'move';
+  }, { signal });
+
+  el.addEventListener('drop', async (e) => {
+    const col = e.target.closest('.fc-pipe-col');
+    if (!col) return;
+    e.preventDefault();
+    const id = e.dataTransfer.getData('text/plain');
+    const stage = col.dataset.stage;
+    if (!id || !stage) return;
+    await apiJson('/api/recruitment/candidates/' + id, {
+      method: 'POST', body: { stage }, signal,
+    });
+    await load(el, signal);
+  }, { signal });
 }
 
 export function unmount() {

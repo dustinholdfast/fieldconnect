@@ -5,6 +5,7 @@ import {
   createSession,
   destroySession,
   findUserByEmail,
+  loadSession,
   loginLimited,
   recordLoginFailure,
   sessionPayload,
@@ -46,6 +47,19 @@ export async function registerAuthRoutes(app) {
   });
 
   app.get('/api/auth/me', async (request) => sessionPayload(request.fcSession));
+
+  app.post('/api/auth/switch-org', async (request, reply) => {
+    const session = request.fcSession;
+    const orgId = Number(request.body?.orgId);
+    const allowed = (session.orgs || []).some((org) => Number(org.id) === orgId);
+    if (!Number.isInteger(orgId) || !allowed) {
+      return reply.code(404).send({ error: { code: 'not_found' } });
+    }
+    app.db.prepare('UPDATE sessions SET org_id = ? WHERE id = ?').run(orgId, session.id);
+    const next = loadSession(app.db, session.id);
+    request.fcSession = next;
+    return sessionPayload(next);
+  });
 
   // Auth/CSRF probe.
   app.post('/api/ping', async () => ({ ok: true }));

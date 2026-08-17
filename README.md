@@ -13,6 +13,7 @@ The Pilot runtime is a single Node.js (Fastify) process that serves the existing
   - FSM (D. Whitfield) — Dashboard, Attendee CRM (own contacts only), Scheduling, Outcome form, Training
   - Campaign manager / host (A. Reyes) — Dashboard, CRM, Scheduling, Nurture, Division 6 lists, Training, Recruitment, Success line
   - Platform admin (M. Okafor) — all ten workspaces
+  - Read-only executive (L. Hart) — Dashboard only; org switcher for authorized Churches
 - **Dashboard** — KPI strip, lifecycle funnel with proportional bars, conversion-by-FSM table, needs-attention panel
 - **Attendee CRM** — live search + stage filter, contact table, sticky record panel with activity history, “Open outcome form”
 - **Scheduling** — stat cards, appointment queue with status colours, canonical availability + week slot grid
@@ -72,6 +73,7 @@ Compose sets `SEED_DEMO=true`. That writes fictional Twin Cities users and sampl
 | `fsm@twincities.example` | `demo-fsm-2026` | FSM |
 | `host@twincities.example` | `demo-host-2026` | Host / campaign manager |
 | `admin@twincities.example` | `demo-admin-2026` | Admin |
+| `exec@twincities.example` | `demo-exec-2026` | Executive (dashboard only) |
 
 Inactive FSM rows (`lindgren@twincities.example`, `okonjo@twincities.example`) exist so seeded appointments have owners. They cannot log in — the API returns the same `401 { error: { code: "invalid_credentials" } }` as a bad password.
 
@@ -146,4 +148,4 @@ An in-process job poller (`setInterval` 2s, one queued row per tick) runs when `
 
 `nginx.conf` is retained as an optional TLS edge example. It is not required to run the Pilot process.
 
-Public event landing pages, registration forms, and booking pages are out of scope per the handoff.
+Public event pages live at `/r/:slug` (demo: `/r/dn-45` register, `/r/dn-45-book` book). They do not require a session.

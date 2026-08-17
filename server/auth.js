@@ -57,6 +57,16 @@ export function newToken() {
   return randomBytes(32).toString('hex');
 }
 
+export function loadMemberships(db, userId) {
+  return db.prepare(`
+    SELECT o.id, o.slug, o.name, o.status, o.wave, o.timezone, m.role
+      FROM org_memberships m
+      JOIN organizations o ON o.id = m.org_id
+     WHERE m.user_id = ?
+     ORDER BY o.id ASC
+  `).all(userId);
+}
+
 export function sessionPayload(session) {
   return {
     user: {
@@ -75,6 +85,7 @@ export function sessionPayload(session) {
       wave: session.orgWave,
       status: session.orgStatus,
     },
+    orgs: session.orgs || [],
     screens: screensForRole(session.role),
     csrfToken: session.csrfToken,
   };
@@ -102,6 +113,7 @@ export function loadSession(db, id) {
     db.prepare('DELETE FROM sessions WHERE id = ?').run(id);
     return null;
   }
+  row.orgs = loadMemberships(db, row.userId);
   return row;
 }
 
@@ -181,6 +193,10 @@ function isApiPath(pathname) {
   return pathname === '/api' || pathname.startsWith('/api/');
 }
 
+export function isPublicApi(pathname) {
+  return /^\/api\/public\/[^/]+(?:\/(?:register|book|slots))?$/.test(pathname);
+}
+
 function isMutating(method) {
   return method !== 'GET' && method !== 'HEAD' && method !== 'OPTIONS';
 }
@@ -205,6 +221,7 @@ export function enforceApiAuth(request, reply) {
   if (!isApiPath(pathname)) return false;
   if (pathname === '/api/auth/login') return false;
   if (pathname === '/api/auth/logout') return false;
+  if (isPublicApi(pathname)) return false;
   if (!request.fcSession) return sendError(reply, 401, 'unauthenticated');
   if (isMutating(request.method)) {
     const token = request.headers[CSRF_HEADER];

@@ -491,6 +491,12 @@ a.fc-nav-item:visited {
   font-size: 12.5px;
   margin-bottom: 6px;
   background: color-mix(in srgb, #fff 40%, transparent);
+  cursor: grab;
+}
+
+.fc-pipe-col.drag-over,
+.fc-pipe-col:has(.fc-cand:active) {
+  outline: 1px dashed var(--color-accent);
 }
 
 .fc-cand-meta {
@@ -921,6 +927,55 @@ button.fc-slot {
   color: var(--bad);
   font-size: 13px;
   margin-top: 12px;
+}
+
+.fc-org-switch-label {
+  display: block;
+  font-size: 10px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: #9a9388;
+  margin-bottom: 4px;
+}
+
+.fc-org-switch {
+  width: 100%;
+  margin-bottom: 8px;
+  font: inherit;
+  font-size: 12.5px;
+  color: #f1ece3;
+  background: #121110;
+  border: 1px solid rgba(226, 214, 192, 0.22);
+  border-radius: 4px;
+  padding: 5px 8px;
+}
+
+.fc-public {
+  width: 100%;
+  max-width: 880px;
+}
+
+.fc-public .fc-brand-name {
+  text-align: center;
+  font-size: 32px;
+}
+
+.fc-public .kicker {
+  text-align: center;
+  margin: 6px 0 12px;
+}
+
+.fc-public .fc-field input {
+  width: 100%;
+}
+
+.fc-public .fc-week {
+  margin-top: 8px;
+}
+
+.fc-slot.selected {
+  border-color: var(--color-accent);
+  background: color-mix(in srgb, #b68235 16%, transparent);
 }
 
 /* Ensure buttons look right */

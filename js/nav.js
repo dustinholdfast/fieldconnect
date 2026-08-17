@@ -6,7 +6,7 @@ export function screensForRole(role) {
 }
 
 export function canAccess(role, screen) {
-  if (screen === 'login' || screen === 'forbidden') return true;
+  if (screen === 'login' || screen === 'forbidden' || screen === 'public') return true;
   return screensForRole(role).includes(screen);
 }
 

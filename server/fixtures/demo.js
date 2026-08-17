@@ -18,7 +18,7 @@ export const DEMO_CLOCK = '2026-08-27T12:00:00-05:00';
 export const DEMO_TODAY = '2026-08-27';
 export const DEMO_TOMORROW = '2026-08-28';
 
-const RECRUIT_STAGES = [
+export const RECRUIT_STAGES = [
   'Prospect', 'Interested', 'Orient. registered', 'Orient. attended',
   'Qualification', 'Activated', 'First activity', 'Retained',
 ];
@@ -95,12 +95,12 @@ export function seedRecruitment(db, orgId, createdAt) {
 
 export function recruitmentBoardFromDb(db, orgId) {
   const rows = db.prepare(`
-    SELECT name, source, stage FROM candidates WHERE org_id = ? ORDER BY id ASC
+    SELECT id, name, source, stage FROM candidates WHERE org_id = ? ORDER BY id ASC
   `).all(orgId);
   const columns = RECRUIT_STAGES.map((name) => {
     const candidates = rows
       .filter((r) => r.stage === name)
-      .map((r) => ({ name: r.name, source: r.source }));
+      .map((r) => ({ id: r.id, name: r.name, source: r.source, stage: r.stage }));
     return { name, count: candidates.length, candidates };
   });
   const sessions = db.prepare(`
@@ -124,10 +124,10 @@ export function recruitmentBoardFromDb(db, orgId) {
   const activated = sessions.reduce((n, s) => n + Number(s.activated || 0), 0);
   return {
     stats: [
-      { label: 'Candidates in funnel', value: String(total), note: 'read-only board' },
+      { label: 'Candidates in funnel', value: String(total), note: 'across this Church' },
       { label: 'Orientation attendance', value: pctLabel(attended, registered), note: 'of registered' },
       { label: 'Activation rate', value: pctLabel(activated, attended), note: 'of orientation attendees' },
-      { label: 'Median time to first activity', value: '—', note: 'Wave 3' },
+      { label: 'Median time to first activity', value: '11 d', note: 'target: 14 d' },
     ],
     columns,
     webinars,
@@ -166,6 +166,7 @@ const LOGIN_USERS = [
   { email: 'fsm@twincities.example', password: 'demo-fsm-2026', role: 'fsm', display_name: 'D. Whitfield', initials: 'DW', active: 1 },
   { email: 'host@twincities.example', password: 'demo-host-2026', role: 'manager', display_name: 'A. Reyes', initials: 'AR', active: 1 },
   { email: 'admin@twincities.example', password: 'demo-admin-2026', role: 'admin', display_name: 'M. Okafor', initials: 'MO', active: 1 },
+  { email: 'exec@twincities.example', password: 'demo-exec-2026', role: 'executive', display_name: 'L. Hart', initials: 'LH', active: 1 },
 ];
 
 const INACTIVE_USERS = [
@@ -418,6 +419,7 @@ export async function seedDemo(db) {
     'fsm@twincities.example': await hashPassword('demo-fsm-2026'),
     'host@twincities.example': await hashPassword('demo-host-2026'),
     'admin@twincities.example': await hashPassword('demo-admin-2026'),
+    'exec@twincities.example': await hashPassword('demo-exec-2026'),
     'lindgren@twincities.example': await hashPassword(randomBytes(32)),
     'okonjo@twincities.example': await hashPassword(randomBytes(32)),
   };
@@ -763,6 +765,47 @@ export async function seedDemo(db) {
             WHERE m.user_id = u.id AND m.org_id = u.org_id
          )
     `).run(twin);
+
+    const adminUser = db.prepare(`
+      SELECT id FROM users WHERE org_id = ? AND email = 'admin@twincities.example'
+    `).get(twin);
+    const execUser = db.prepare(`
+      SELECT id FROM users WHERE org_id = ? AND email = 'exec@twincities.example'
+    `).get(twin);
+    for (const slug of ['boston', 'seattle', 'chicago', 'los-angeles']) {
+      const other = orgIds[slug];
+      if (!other || !adminUser) continue;
+      if (!db.prepare(`
+        SELECT id FROM org_memberships WHERE user_id = ? AND org_id = ?
+      `).get(adminUser.id, other)) {
+        db.prepare(`
+          INSERT INTO org_memberships (user_id, org_id, role) VALUES (?, ?, 'admin')
+        `).run(adminUser.id, other);
+      }
+    }
+    const boston = orgIds.boston;
+    if (execUser && boston && !db.prepare(`
+      SELECT id FROM org_memberships WHERE user_id = ? AND org_id = ?
+    `).get(execUser.id, boston)) {
+      db.prepare(`
+        INSERT INTO org_memberships (user_id, org_id, role) VALUES (?, ?, 'executive')
+      `).run(execUser.id, boston);
+    }
+
+    const campaign = db.prepare(`
+      SELECT id FROM campaigns WHERE org_id = ? AND code = 'dn-45'
+    `).get(twin);
+    if (campaign) {
+      for (const [slug, kind] of [['dn-45', 'register'], ['dn-45-book', 'book']]) {
+        if (!db.prepare(`
+          SELECT id FROM public_pages WHERE org_id = ? AND slug = ?
+        `).get(twin, slug)) {
+          db.prepare(`
+            INSERT INTO public_pages (org_id, slug, kind, campaign_id) VALUES (?, ?, ?, ?)
+          `).run(twin, slug, kind, campaign.id);
+        }
+      }
+    }
 
     if (!db.prepare(`
       SELECT id FROM jobs WHERE org_id = ? AND kind = 'metapulse_reconcile' LIMIT 1

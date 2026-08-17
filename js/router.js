@@ -17,6 +17,7 @@ const ROUTES = [
   { pattern: '/stories', screen: 'stories' },
   { pattern: '/admin', screen: 'admin' },
   { pattern: '/forbidden', screen: 'forbidden' },
+  { pattern: '/r/:slug', screen: 'public' },
 ];
 
 let onChange = null;

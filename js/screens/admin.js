@@ -28,7 +28,7 @@ function fmtNum(n) {
 
 function orgsHtml(orgs) {
   let html = '<h4 style="margin-bottom:8px">Organizations</h4>' +
-    '<p class="text-muted" style="font-size:12.5px;margin:0 0 12px">Loaded from GET /api/orgs — the one cross-org metadata read (id, slug, name, wave, status, counts, map). It does not return people, emails, or appointments. Multi-org switcher is Wave 3.</p>';
+    '<p class="text-muted" style="font-size:12.5px;margin:0 0 12px">Loaded from GET /api/orgs — the one cross-org metadata read (id, slug, name, wave, status, counts, map). It does not return people, emails, or appointments. Switch organizations from the sidebar.</p>';
   if (!orgs) {
     return html + emptyPanel('Loading organizations…');
   }
@@ -45,11 +45,11 @@ function orgsHtml(orgs) {
 
 function laterWavesHtml() {
   return '<div class="fc-panel" style="margin-top:24px"><div class="fc-section-title">Later waves</div>' +
-    '<p class="text-muted" style="font-size:12.5px;margin:10px 0 0">Wave 2 is live on this org (journeys, calendar demo connect, training gates, story consent, MetaPulse L2/L3). Wave 3 stays listed until it ships.</p>' +
+    '<p class="text-muted" style="font-size:12.5px;margin:10px 0 0">Waves 2 and 3 are live on this process. Public pages: /r/dn-45 (register) and /r/dn-45-book (book).</p>' +
     '<ul class="text-muted" style="font-size:12.5px;margin:10px 0 0;padding-left:18px">' +
-    '<li>Multi-org switcher — Wave 3</li>' +
-    '<li>Executive (read-only) login — Wave 3</li>' +
-    '<li>Public registration and booking pages — Wave 3</li>' +
+    '<li>Multi-org switcher — live in the sidebar for members of more than one Church</li>' +
+    '<li>Executive (read-only) login — dashboard only, no edits</li>' +
+    '<li>Public registration and booking — /r/dn-45</li>' +
     '<li>Calendar connections — live on Scheduling (demo connect, no vendor OAuth secrets)</li>' +
     '<li>MetaPulse Level 2 / 3 — enable below (local adapter, no vendor SDK)</li>' +
     '</ul></div>';
@@ -57,7 +57,7 @@ function laterWavesHtml() {
 
 function rolesHtml() {
   let html = '<h4 style="margin-bottom:12px">Roles and permissions</h4>' +
-    '<p class="text-muted" style="font-size:12.5px;margin:0 0 12px">Documentation of hats. Extra roles are not Pilot login targets. The executive role is Wave 3.</p>' +
+    '<p class="text-muted" style="font-size:12.5px;margin:0 0 12px">Documentation of hats. The executive role is a live read-only login. Other extra hats are not login targets.</p>' +
     '<table class="table" style="width:100%;font-size:13px;margin-bottom:28px"><thead><tr>' +
     '<th>Role</th><th>Scope</th><th>Key restriction</th></tr></thead><tbody>';
   ROLES_TABLE.forEach((r) => {

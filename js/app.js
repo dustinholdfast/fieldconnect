@@ -18,10 +18,12 @@ import * as recruitment from './screens/recruitment.js';
 import * as scheduling from './screens/scheduling.js';
 import * as stories from './screens/stories.js';
 import * as training from './screens/training.js';
+import * as publicPage from './screens/public.js';
 import { setRouteHandler, setState, state } from './state.js';
 
 const screens = {
-  dashboard, crm, scheduling, outcome, nurture, lists, training, recruitment, stories, admin, forbidden, login
+  dashboard, crm, scheduling, outcome, nurture, lists, training, recruitment, stories, admin, forbidden, login,
+  public: publicPage,
 };
 
 let current = { screen: null, recordId: null, unmount: null, shellKey: null };
@@ -31,6 +33,7 @@ function applySession(payload) {
   setCsrfToken(payload.csrfToken);
   state.user = payload.user;
   state.org = payload.org;
+  state.orgs = payload.orgs || [];
   state.role = payload.user.role;
 }
 
@@ -46,8 +49,22 @@ function screenMeta(id) {
   return SCREENS.find((s) => s.id === id) || { kicker: '', title: id };
 }
 
+function orgSwitcherHtml(orgName) {
+  const orgs = state.orgs || [];
+  if (orgs.length < 2) {
+    return '<div class="fc-org-name">' + esc(orgName) + '</div>';
+  }
+  let html = '<label class="fc-org-switch-label" for="org-switch">Organization</label>' +
+    '<select id="org-switch" class="fc-org-switch">';
+  orgs.forEach((org) => {
+    const selected = Number(org.id) === Number(state.org?.id) ? ' selected' : '';
+    html += '<option value="' + org.id + '"' + selected + '>' + esc(org.name) + '</option>';
+  });
+  return html + '</select>';
+}
+
 function shellKey(user, route) {
-  return [user?.id ?? '', user?.role ?? '', route?.screen ?? ''].join('|');
+  return [user?.id ?? '', user?.role ?? '', state.org?.id ?? '', route?.screen ?? ''].join('|');
 }
 
 function shellChanged(user, route) {
@@ -58,7 +75,7 @@ export function renderShell(user, route) {
   const root = document.getElementById('app');
   if (!root || !route) return;
 
-  if (route.screen === 'login') {
+  if (route.screen === 'login' || route.screen === 'public') {
     root.className = 'fc-root fc-login-page';
     return;
   }
@@ -88,7 +105,7 @@ export function renderShell(user, route) {
     '</div>' +
     renderNav(state.role, route.screen) +
     '<div class="fc-sidebar-footer">' +
-      '<div class="fc-org-name">' + esc(orgName) + '</div>' +
+      orgSwitcherHtml(orgName) +
       '<div class="fc-sync">MetaPulse sync — ' + (state.adapterOn ? 'API adapter live' : 'file exchange') + '</div>' +
     '</div>';
 
@@ -138,6 +155,22 @@ export function renderScreen(route) {
   def?.mount?.(el, route, { user: state.user, org: state.org, navigate, setState });
 }
 
+function renderPublicPage(route) {
+  if (current.unmount) {
+    current.unmount();
+    current.unmount = null;
+  }
+  const root = document.getElementById('app');
+  if (!root) return;
+  root.className = 'fc-root fc-login-page';
+  root.innerHTML = publicPage.render(route, state);
+  current.screen = 'public';
+  current.recordId = null;
+  current.shellKey = 'public';
+  current.unmount = () => publicPage.unmount();
+  publicPage.mount(root, route, {});
+}
+
 function renderLoginPage(route) {
   if (current.unmount) {
     current.unmount();
@@ -158,6 +191,10 @@ function onRoute(route, flags = {}) {
   if (!route) return;
   if (route.screen === 'login') {
     renderLoginPage(route);
+    return;
+  }
+  if (route.screen === 'public') {
+    renderPublicPage(route);
     return;
   }
   const user = state.user;
@@ -201,6 +238,21 @@ function bindAppClicks() {
   const root = document.getElementById('app');
   if (!root || root.dataset.navBound) return;
   root.dataset.navBound = '1';
+  root.addEventListener('change', async (event) => {
+    const sel = event.target.closest('#org-switch');
+    if (!sel) return;
+    try {
+      const res = await api('/api/auth/switch-org', {
+        method: 'POST',
+        silent: true,
+        body: { orgId: Number(sel.value) },
+      });
+      if (!res.ok) return;
+      applySession(await res.json());
+      firstAuthPaint = true;
+      onRoute(state.route || parse(), { shell: true, content: true });
+    } catch { /* keep current org */ }
+  });
   root.addEventListener('click', (event) => {
     if (event.target.closest('#logout')) {
       event.preventDefault();
@@ -237,7 +289,7 @@ function bindAppClicks() {
 function handleLocation(parsed) {
   const route = parsed || parse();
   if (!state.user) {
-    if (route.screen === 'login') {
+    if (route.screen === 'login' || route.screen === 'public') {
       state.route = route;
       onRoute(route, { shell: true, content: true });
     }
@@ -303,6 +355,10 @@ async function boot() {
   const me = await fetchMe();
   if (!me) {
     const here = parse();
+    if (here.screen === 'public') {
+      startRouter(handleLocation);
+      return;
+    }
     if (here.screen !== 'login') {
       const next = location.pathname + location.search || '/dashboard';
       location.replace('/login?next=' + encodeURIComponent(next));

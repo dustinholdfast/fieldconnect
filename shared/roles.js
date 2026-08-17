@@ -15,12 +15,14 @@ export const ROLE_SCREENS = {
   fsm: ['dashboard', 'crm', 'scheduling', 'outcome', 'training'],
   manager: ['dashboard', 'crm', 'scheduling', 'nurture', 'lists', 'training', 'recruitment', 'stories'],
   admin: SCREENS.map((s) => s.id),
+  executive: ['dashboard'],
 };
 
 export const ROLES = [
   { id: 'fsm', label: 'FSM', name: 'D. Whitfield', initials: 'DW', full: 'Field Staff Member' },
   { id: 'manager', label: 'Host', name: 'A. Reyes', initials: 'AR', full: 'Campaign manager / host' },
   { id: 'admin', label: 'Admin', name: 'M. Okafor', initials: 'MO', full: 'Platform administrator' },
+  { id: 'executive', label: 'Exec', name: 'L. Hart', initials: 'LH', full: 'Read-only executive' },
 ];
 
 export const ROLES_TABLE = [

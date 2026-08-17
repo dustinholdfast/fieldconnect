@@ -4,6 +4,7 @@ export const state = {
   role: 'manager',
   user: null,
   org: null,
+  orgs: [],
   route: { screen: 'dashboard', params: {}, query: {}, path: '/dashboard', known: true },
   screen: 'dashboard',
   contactIdx: 0,

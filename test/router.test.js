@@ -27,6 +27,7 @@ const CASES = [
   ['/stories', { screen: 'stories', params: {} }],
   ['/admin', { screen: 'admin', params: {} }],
   ['/forbidden', { screen: 'forbidden', params: {} }],
+  ['/r/dn-45', { screen: 'public', params: { slug: 'dn-45' } }],
 ];
 
 for (const [path, expected] of CASES) {

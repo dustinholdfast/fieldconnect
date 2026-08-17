@@ -22,6 +22,7 @@ const LOGIN_EMAILS = [
   'fsm@twincities.example',
   'host@twincities.example',
   'admin@twincities.example',
+  'exec@twincities.example',
 ];
 
 const INACTIVE_EMAILS = [
@@ -49,10 +50,10 @@ test('clock.now() equals demo clock when SEED_DEMO=true', async (t) => {
   assert.equal(now(db).toISOString(), new Date(DEMO_CLOCK).toISOString());
 });
 
-test('seed creates 3 login users and 2 inactive FSMs', async (t) => {
+test('seed creates 4 login users and 2 inactive FSMs', async (t) => {
   const db = await seededDb(t);
   const users = db.prepare('SELECT email, role, display_name, initials, active, password_hash FROM users').all();
-  assert.equal(users.length, 5);
+  assert.equal(users.length, 6);
   for (const email of LOGIN_EMAILS) {
     const row = users.find((u) => u.email === email);
     assert.ok(row, email);
