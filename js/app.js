@@ -26,6 +26,7 @@ const screens = {
 };
 
 let current = { screen: null, recordId: null, unmount: null, shellKey: null };
+let firstAuthPaint = true;
 
 function applySession(payload) {
   setCsrfToken(payload.csrfToken);
@@ -258,12 +259,14 @@ function handleLocation(parsed) {
     return;
   }
   if (route.params.personId) {
-    const idx = Number(route.params.personId) - 1;
-    if (Number.isInteger(idx) && idx >= 0) state.contactIdx = idx;
+    const sel = crm.contactById(route.params.personId);
+    if (sel) state.contactIdx = sel.i;
   }
   if (route.params.journeyId) state.journeyId = route.params.journeyId;
   setState({ route, screen: route.screen, error: state.error });
-  onRoute(route, { shell: true, content: true });
+  const flags = firstAuthPaint ? { shell: true, content: true } : { content: true };
+  firstAuthPaint = false;
+  onRoute(route, flags);
 }
 
 function wireApiErrors() {
