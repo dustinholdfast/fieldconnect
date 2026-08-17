@@ -44,7 +44,7 @@ function boardHtml(journeys, route) {
   });
   html += '</tbody></table><p class="text-muted" style="font-size:12.5px;margin-top:16px">Exit: ' + esc(active.exit) +
     '. Quiet hours 9 PM–8 AM local. Immediate opt-out suppression on every channel.</p>' +
-    '<p class="text-muted" style="font-size:12.5px;margin-top:8px">Journey sending is Wave 2. This screen is a read-only template library.</p></section></div>';
+    '<p class="text-muted" style="font-size:12.5px;margin-top:8px">Wave 2 engine is live: enrollments queue steps, skip quiet hours and frequency caps, and record local outbound (no vendor SDK).</p></section></div>';
   return html;
 }
 

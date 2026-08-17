@@ -45,13 +45,13 @@ function orgsHtml(orgs) {
 
 function laterWavesHtml() {
   return '<div class="fc-panel" style="margin-top:24px"><div class="fc-section-title">Later waves</div>' +
-    '<p class="text-muted" style="font-size:12.5px;margin:10px 0 0">These controls stay disabled until their wave. This screen does not implement them.</p>' +
+    '<p class="text-muted" style="font-size:12.5px;margin:10px 0 0">Wave 2 is live on this org (journeys, calendar demo connect, training gates, story consent, MetaPulse L2/L3). Wave 3 stays listed until it ships.</p>' +
     '<ul class="text-muted" style="font-size:12.5px;margin:10px 0 0;padding-left:18px">' +
     '<li>Multi-org switcher — Wave 3</li>' +
     '<li>Executive (read-only) login — Wave 3</li>' +
     '<li>Public registration and booking pages — Wave 3</li>' +
-    '<li>Calendar OAuth (Google / Outlook) — Wave 2</li>' +
-    '<li>MetaPulse Level 2 API adapter and Level 3 nightly reconciliation — Wave 2</li>' +
+    '<li>Calendar connections — live on Scheduling (demo connect, no vendor OAuth secrets)</li>' +
+    '<li>MetaPulse Level 2 / 3 — enable below (local adapter, no vendor SDK)</li>' +
     '</ul></div>';
 }
 
@@ -76,12 +76,16 @@ function integrationHtml(integration) {
   return '<div class="fc-panel"><div class="fc-section-title">MetaPulse integration</div>' +
     '<div style="font-size:13px;margin-top:12px">' +
     '<div style="padding:8px 0;border-bottom:1px solid var(--color-divider)">Level 1 — File exchange <span style="float:right;color:' + OK + '">' + esc(level1Label(integration)) + '</span></div>' +
-    '<div style="padding:8px 0;border-bottom:1px solid var(--color-divider)">Level 2 — API adapter <span style="float:right;color:' + WARN + '">Wave 2 — disabled</span></div>' +
-    '<div style="padding:8px 0;border-bottom:1px solid var(--color-divider)">Level 3 — Nightly reconciliation (02:00 CT) <span style="float:right;color:' + WARN + '">Wave 2 — paused</span></div>' +
+    '<div style="padding:8px 0;border-bottom:1px solid var(--color-divider)">Level 2 — API adapter <span style="float:right;color:' + (integration?.level2 === 'live' ? OK : WARN) + '">' +
+      esc(integration?.level2 === 'live' ? 'Live' : 'Off') + '</span></div>' +
+    '<div style="padding:8px 0;border-bottom:1px solid var(--color-divider)">Level 3 — Nightly reconciliation (02:00 CT) <span style="float:right;color:' + (integration?.level3 === 'scheduled' ? OK : WARN) + '">' +
+      esc(integration?.level3 === 'scheduled' ? 'Scheduled' : 'Paused') + '</span></div>' +
     '<div style="padding:8px 0">Least-privilege API user · credentials owned by the non-profit</div></div>' +
     '<div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:14px;align-items:center">' +
     '<button class="btn btn-primary" id="export-l1" type="button"' + (l1on ? '' : ' disabled') + '>Export now</button>' +
-    '<button class="btn btn-secondary" id="toggle-adapter" type="button" disabled title="Wave 2 — API adapter">Wave 2 — API adapter</button>' +
+    '<button class="btn btn-secondary" id="toggle-adapter" type="button" data-live="' +
+      (integration?.level2 === 'live' ? '1' : '0') + '">' +
+      (integration?.level2 === 'live' ? 'Disable API adapter' : 'Activate API adapter') + '</button>' +
     '</div>' +
     '<div id="export-note" class="fc-note hidden" style="margin-top:12px"></div>' +
     '</div>';
@@ -201,6 +205,14 @@ export function mount(el) {
   el.addEventListener('click', async (e) => {
     if (e.target.closest('#toggle-adapter')) {
       e.preventDefault();
+      const btn = e.target.closest('#toggle-adapter');
+      const live = btn?.dataset.live === '1';
+      await apiJson('/api/admin/integration', {
+        method: 'POST',
+        body: { level2: live ? 'off' : 'live' },
+        signal,
+      });
+      await loadAdmin(el, signal);
       return;
     }
     if (!e.target.closest('#export-l1')) return;

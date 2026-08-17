@@ -25,12 +25,12 @@ function boardHtml(bundle, route) {
 
   const track = selected?.track || state.track || tracks[0] || 'FSM';
   const courses = items.filter((c) => c.track === track);
-  const ungated = gates.status === 'pilot_ungated' || gates.reason === 'pilot_ungated';
+  const ready = gates.routingEnabled;
   const quals = [
-    ['FSM track', 'In progress', WARN],
-    ['Supervisor sign-off', 'Pending', WARN],
+    ['FSM track', gates.complete != null ? (gates.complete + ' of ' + gates.required + ' complete') : '—', ready ? OK : WARN],
+    ['Supervisor sign-off', gates.signedOff ? 'Signed' : 'Pending', gates.signedOff ? OK : WARN],
     ['Refresher due', '14 Feb 2027', 'inherit'],
-    ['Appointment routing', ungated ? 'Enabled (pilot, ungated)' : 'Enabled (provisional)', OK],
+    ['Appointment routing', ready ? 'Enabled' : 'Withheld', ready ? OK : 'bad'],
   ];
 
   let html = '<div class="fc-tracks">';
@@ -46,7 +46,11 @@ function boardHtml(bundle, route) {
       '<p class="text-muted" style="font-size:13px;margin:0 0 10px">' + esc(selected.blurb) + '</p>' +
       '<div class="card-meta" style="margin-bottom:10px"><span>' + esc(selected.durationLabel) + '</span></div>' +
       '<div class="fc-progress"><div class="fc-progress-bar" style="width:' + pct + '%"></div></div>' +
-      '<p class="text-muted" style="font-size:12.5px;margin-top:12px">Lesson video is not included in Pilot.</p></div>';
+      '<p class="text-muted" style="font-size:12.5px;margin-top:12px">Lesson video is not included. Mark the module complete to count toward the FSM track.</p>' +
+      (selected.status !== 'Complete'
+        ? '<button class="btn btn-primary" type="button" data-complete="' + selected.id + '">Mark complete</button>'
+        : '') +
+      '</div>';
   }
   html += '<div class="fc-course-grid">';
   if (courses.length === 0) {
@@ -68,7 +72,20 @@ function boardHtml(bundle, route) {
     html += '<div style="display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid var(--color-divider);font-size:13px">' +
       '<span class="text-muted">' + esc(q[0]) + '</span><span style="color:' + q[2] + '">' + esc(q[1]) + '</span></div>';
   });
-  html += '<p class="text-muted" style="font-size:12.5px;margin-top:16px">Appointment routing is withheld until the FSM track is complete and signed off. Training gates and supervisor sign-off are Wave 2.</p></aside></div>';
+  html += '<p class="text-muted" style="font-size:12.5px;margin-top:16px">Appointment routing is withheld until the FSM track is complete and a supervisor signs off.</p>';
+  if ((bundle.fsms || []).length) {
+    html += '<div class="fc-section-title" style="margin-top:16px">FSM sign-off</div>';
+    bundle.fsms.forEach((f) => {
+      html += '<div style="display:flex;justify-content:space-between;gap:8px;padding:8px 0;border-bottom:1px solid var(--color-divider);font-size:13px">' +
+        '<span>' + esc(f.name) + '<div class="text-muted" style="font-size:11px">' +
+        (f.routingEnabled ? 'Routing enabled' : (f.signedOff ? 'Track incomplete' : 'Needs sign-off')) +
+        '</div></span>' +
+        (f.signedOff ? '<span class="text-muted">Signed</span>'
+          : '<button class="btn btn-ghost" type="button" data-signoff="' + f.id + '">Sign off</button>') +
+        '</div>';
+    });
+  }
+  html += '</aside></div>';
   return html;
 }
 
@@ -87,11 +104,34 @@ async function load(el, route, signal) {
 export function mount(el, route) {
   abort = new AbortController();
   load(el, route, abort.signal).catch(() => {});
-  el.addEventListener('click', (e) => {
+  el.addEventListener('click', async (e) => {
     const chip = e.target.closest('[data-track]');
-    if (!chip) return;
-    setState({ track: chip.dataset.track });
-    navigate('/training');
+    if (chip) {
+      setState({ track: chip.dataset.track });
+      navigate('/training');
+      return;
+    }
+    const complete = e.target.closest('[data-complete]');
+    if (complete) {
+      complete.disabled = true;
+      await apiJson('/api/training/progress', {
+        method: 'POST',
+        body: { moduleId: Number(complete.dataset.complete), progressPct: 100 },
+        signal: abort.signal,
+      });
+      await load(el, route, abort.signal);
+      return;
+    }
+    const sign = e.target.closest('[data-signoff]');
+    if (sign) {
+      sign.disabled = true;
+      await apiJson('/api/training/signoff', {
+        method: 'POST',
+        body: { userId: Number(sign.dataset.signoff), track: 'FSM' },
+        signal: abort.signal,
+      });
+      await load(el, route, abort.signal);
+    }
   }, { signal: abort.signal });
 }
 

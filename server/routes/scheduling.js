@@ -1,4 +1,6 @@
 import { write as writeAudit } from '../audit.js';
+import { loadBusyWindows } from './calendar.js';
+import { assertRoutingAllowed } from '../training/gates.js';
 import { endAt, now, nowIso, shiftIso, todayIso } from '../clock.js';
 import { withOrg } from '../db.js';
 
@@ -348,6 +350,8 @@ export async function registerSchedulingRoutes(app) {
     if (!fsm || !fsm.active) {
       return sendError(reply, 400, 'validation_failed', { fields: { fsmUserId: 'Unknown FSM' } });
     }
+    const gated = assertRoutingAllowed(app.db, session.orgId, fsmUserId);
+    if (gated) return sendError(reply, 409, gated.code, { message: gated.message, gate: gated.gate });
     let campaignId = body.campaignId == null || body.campaignId === '' ? null : Number(body.campaignId);
     if (campaignId != null && !Number.isInteger(campaignId)) campaignId = null;
     const rules = loadRules(org);
@@ -504,6 +508,8 @@ export async function registerSchedulingRoutes(app) {
     }
 
     const appts = listAppointments(org, session, request.query || {}).filter((row) => NON_CANCELLED(row.status));
+    const busyUserId = session.role === 'fsm' ? session.userId : Number(request.query?.fsm) || null;
+    const busy = loadBusyWindows(app.db, session.orgId, busyUserId);
     const perDay = new Map();
     for (const appt of appts) {
       const day = dateInTz(appt.start_at, tz);
@@ -522,7 +528,8 @@ export async function registerSchedulingRoutes(app) {
         if (hit) {
           return { start, end, state: 'booked', appointmentId: hit.id };
         }
-        if (startMs < threshold || dayFull) {
+        const calHit = busy.some((block) => block.start < endMs && block.end > startMs);
+        if (startMs < threshold || dayFull || calHit) {
           return { start, end, state: 'blocked' };
         }
         return { start, end, state: 'free' };

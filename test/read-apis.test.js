@@ -128,7 +128,7 @@ test('POST /api/stories/:id/advance persists stage and clamps at Published', asy
   assert.equal(app.db.prepare('SELECT stage FROM stories WHERE id = ?').get(submitted.id).stage, 'Published');
 });
 
-test('GET /api/training is allowed for every role and gates are pilot_ungated', async (t) => {
+test('GET /api/training is allowed and FSM Whitfield is routing-ready', async (t) => {
   const app = await seededApp(t);
   const fsm = await loginAs(app, 'fsm@twincities.example', 'demo-fsm-2026');
   const training = await app.inject({
@@ -146,7 +146,8 @@ test('GET /api/training is allowed for every role and gates are pilot_ungated', 
   assert.ok(body.items[0].blurb);
   assert.ok(body.items[0].durationLabel);
   assert.ok(body.tracks.includes('FSM'));
-  assert.equal(body.gates.status, 'pilot_ungated');
+  assert.equal(body.gates.routingEnabled, true);
+  assert.equal(body.gates.status, 'ready');
 
   const gates = await app.inject({
     method: 'GET',
@@ -154,15 +155,16 @@ test('GET /api/training is allowed for every role and gates are pilot_ungated', 
     headers: { cookie: fsm.cookie },
   });
   assert.equal(gates.statusCode, 200);
-  assert.equal(gates.json().status, 'pilot_ungated');
+  assert.equal(gates.json().routingEnabled, true);
 
+  const userId = app.db.prepare(`SELECT id FROM users WHERE email = 'fsm@twincities.example'`).get().id;
   const byUser = await app.inject({
     method: 'GET',
-    url: '/api/training/gates/' + fsm.cookie.length,
+    url: '/api/training/gates/' + userId,
     headers: { cookie: fsm.cookie },
   });
   assert.equal(byUser.statusCode, 200);
-  assert.equal(byUser.json().reason, 'pilot_ungated');
+  assert.equal(byUser.json().reason, 'ready');
   assert.equal(byUser.json().routingEnabled, true);
 });
 

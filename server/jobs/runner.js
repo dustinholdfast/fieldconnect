@@ -1,11 +1,14 @@
 import { write as writeAudit } from '../audit.js';
 import { now, nowIso } from '../clock.js';
+import { tickOrg } from '../journeys/engine.js';
 import { writeLevel1Csv } from '../metapulse/level1.js';
+import { reconcileOrg } from '../metapulse/reconcile.js';
 
 export const MAX_ATTEMPTS = 3;
 export const KIND_METAPULSE_L1 = 'metapulse_l1';
 export const KIND_REMINDERS = 'reminders';
 export const KIND_RECONCILE = 'metapulse_reconcile';
+export const KIND_JOURNEY = 'journey_tick';
 
 const REMINDER_MS = 24 * 60 * 60 * 1000;
 const REMINDER_REPEAT_MS = 60_000;
@@ -151,8 +154,11 @@ function handleJob(db, job, dataDir) {
   if (job.kind === KIND_REMINDERS) {
     return handleReminders(db, job);
   }
+  if (job.kind === KIND_JOURNEY) {
+    return tickOrg(db, job.org_id);
+  }
   if (job.kind === KIND_RECONCILE) {
-    throw new Error("NotImplemented('wave-2')");
+    return reconcileOrg(db, { orgId: job.org_id, dataDir });
   }
   throw new Error(`unknown job kind: ${job.kind}`);
 }
@@ -164,10 +170,10 @@ export function runOnce(db, { dataDir } = {}) {
   try {
     const result = handleJob(db, job, dataDir || runnerDataDir);
     markDone(db, job, result);
-    if (job.kind === KIND_REMINDERS) {
+    if (job.kind === KIND_REMINDERS || job.kind === KIND_JOURNEY) {
       enqueue(db, {
         orgId: job.org_id,
-        kind: KIND_REMINDERS,
+        kind: job.kind,
         runAfter: new Date(Date.now() + REMINDER_REPEAT_MS).toISOString(),
       });
     }
@@ -178,17 +184,22 @@ export function runOnce(db, { dataDir } = {}) {
   }
 }
 
+function ensureKind(db, orgId, kind) {
+  const pending = db.prepare(`
+    SELECT id FROM jobs
+     WHERE org_id = ? AND kind = ? AND status IN ('queued', 'running')
+     LIMIT 1
+  `).get(orgId, kind);
+  if (!pending) enqueue(db, { orgId, kind });
+}
+
 export function ensureReminderJobs(db) {
   const orgs = db.prepare(`
     SELECT id FROM organizations WHERE lower(status) = 'live'
   `).all();
   for (const org of orgs) {
-    const pending = db.prepare(`
-      SELECT id FROM jobs
-       WHERE org_id = ? AND kind = ? AND status IN ('queued', 'running')
-       LIMIT 1
-    `).get(org.id, KIND_REMINDERS);
-    if (!pending) enqueue(db, { orgId: org.id, kind: KIND_REMINDERS });
+    ensureKind(db, org.id, KIND_REMINDERS);
+    ensureKind(db, org.id, KIND_JOURNEY);
   }
 }
 

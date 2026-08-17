@@ -32,17 +32,11 @@ function tempDb(t) {
   return db;
 }
 
-test('adapter pushBatch throws NotImplemented(wave-2)', () => {
-  assert.throws(
-    () => pushBatch([]),
-    (err) => {
-      assert.equal(err.name, 'NotImplemented');
-      assert.equal(err.wave, 'wave-2');
-      assert.match(err.message, /NotImplemented\('wave-2'\)/);
-      return true;
-    },
-  );
-  const err = NotImplemented('wave-2');
+test('adapter pushBatch records locally without a vendor SDK', () => {
+  const result = pushBatch([{ email: 'a@example.test' }, {}]);
+  assert.equal(result.accepted, 1);
+  assert.equal(result.rejected, 1);
+  const err = NotImplemented('wave-3');
   assert.equal(err.name, 'NotImplemented');
 });
 
@@ -55,17 +49,20 @@ test('enroll writes a row and sends nothing', async (t) => {
       SELECT id FROM organizations WHERE slug = 'twin-cities'
     ) LIMIT 1
   `).get();
-  const before = db.prepare('SELECT COUNT(*) AS c FROM outbound_messages').get().c;
+  const beforeSent = db.prepare(`SELECT COUNT(*) AS c FROM outbound_messages WHERE status = 'sent'`).get().c;
 
   const result = enroll(db, { orgId: person.org_id, personId: person.id, journeyKey: 'j1' });
   assert.ok(result.id);
   assert.deepEqual(result.sent, []);
-  assert.equal(db.prepare('SELECT COUNT(*) AS c FROM outbound_messages').get().c, before);
+  assert.equal(db.prepare(`SELECT COUNT(*) AS c FROM outbound_messages WHERE status = 'sent'`).get().c, beforeSent);
+  const queued = db.prepare(`SELECT COUNT(*) AS c FROM outbound_messages WHERE enrollment_id = ? AND status = 'queued'`).get(result.id).c;
+  assert.ok(queued > 0);
   const row = db.prepare('SELECT status, journey_key FROM enrollments WHERE id = ?').get(result.id);
   assert.equal(row.status, 'active');
   assert.equal(row.journey_key, 'j1');
 
-  assert.throws(() => sendOutbound({}), /NotImplemented\('wave-2'\)/);
+  const sent = sendOutbound();
+  assert.equal(sent.provider, 'local');
 
   const src = readFileSync(join(rootDir, 'server', 'journeys', 'enroll.js'), 'utf8');
   assert.doesNotMatch(src, /nodemailer|twilio|sendgrid|mailgun|postmark|@sendgrid|@twilio/i);

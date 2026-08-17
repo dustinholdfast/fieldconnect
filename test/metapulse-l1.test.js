@@ -179,7 +179,7 @@ test('L1 export row count matches live people and product_skus aggregates latest
   assert.equal(JSON.parse(audit.after_json).rowCount, live);
 });
 
-test('FSM and manager cannot export; Level 2 cannot be enabled', async (t) => {
+test('FSM and manager cannot export; admin can enable Level 2', async (t) => {
   const app = await seededApp(t);
   const fsm = await loginAs(app, 'fsm@twincities.example', 'demo-fsm-2026');
   const host = await loginAs(app, 'host@twincities.example', 'demo-host-2026');
@@ -202,7 +202,7 @@ test('FSM and manager cannot export; Level 2 cannot be enabled', async (t) => {
     headers: { cookie: admin.cookie },
   });
   assert.equal(integ.statusCode, 200);
-  assert.equal(integ.json().level2, 'disabled');
+  assert.equal(integ.json().level2, 'off');
   assert.equal(integ.json().level1, 'active');
 
   const enable = await app.inject({
@@ -211,15 +211,16 @@ test('FSM and manager cannot export; Level 2 cannot be enabled', async (t) => {
     headers: { cookie: admin.cookie, 'x-csrf-token': admin.csrf },
     payload: { level2: 'live', adapterOn: true },
   });
-  assert.equal(enable.statusCode, 409);
-  assert.equal(enable.json().error.code, 'conflict');
+  assert.equal(enable.statusCode, 200);
+  assert.equal(enable.json().level2, 'live');
+  assert.equal(enable.json().level3, 'scheduled');
 
   const after = await app.inject({
     method: 'GET',
     url: '/api/admin/integration',
     headers: { cookie: admin.cookie },
   });
-  assert.equal(after.json().level2, 'disabled');
+  assert.equal(after.json().level2, 'live');
 
   const orgs = await app.inject({
     method: 'GET',

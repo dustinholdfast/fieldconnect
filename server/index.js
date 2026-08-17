@@ -24,6 +24,7 @@ import { registerRecruitmentRoutes } from './routes/recruitment.js';
 import { registerSchedulingRoutes } from './routes/scheduling.js';
 import { registerStoryRoutes } from './routes/stories.js';
 import { registerTrainingRoutes } from './routes/training.js';
+import { registerCalendarRoutes } from './routes/calendar.js';
 
 const rootDir = join(dirname(fileURLToPath(import.meta.url)), '..');
 
@@ -155,6 +156,7 @@ export async function buildApp(opts = {}) {
   await registerTrainingRoutes(app);
   await registerStoryRoutes(app);
   await registerRecruitmentRoutes(app);
+  await registerCalendarRoutes(app);
   registerMetrics(app);
   if (jobsOn) startRunner(db, { dataDir: resolvedDataDir });
 

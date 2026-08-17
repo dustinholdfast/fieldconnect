@@ -1,3 +1,6 @@
+import { enqueue, KIND_RECONCILE } from '../jobs/runner.js';
+import { isLevel2Enabled, setLevel2Enabled } from '../metapulse/adapter.js';
+
 function stripOrg(body) {
   if (!body || typeof body !== 'object') return {};
   const { org_id: _orgIdSnake, orgId: _orgIdCamel, ...rest } = body;
@@ -32,8 +35,8 @@ function integrationBody(db, orgId) {
   }
   return {
     level1: process.env.METAPULSE_L1_ENABLED === 'false' ? 'disabled' : 'active',
-    level2: 'disabled',
-    level3: 'paused',
+    level2: isLevel2Enabled(db, orgId) ? 'live' : 'off',
+    level3: isLevel2Enabled(db, orgId) ? 'scheduled' : 'paused',
     lastExport: last
       ? { rows: last.row_count, skipped, at: last.created_at, filename: last.filename }
       : null,
@@ -75,8 +78,10 @@ export async function registerAdminRoutes(app) {
 
   app.post('/api/admin/integration', async (request, reply) => {
     const body = stripOrg(request.body);
-    if (wantsLevel2(body)) {
-      return sendError(reply, 409, 'conflict', { message: 'Level 2 is Wave 2 and cannot be enabled' });
+    const enable = wantsLevel2(body);
+    setLevel2Enabled(app.db, request.fcSession.orgId, enable);
+    if (enable) {
+      enqueue(app.db, { orgId: request.fcSession.orgId, kind: KIND_RECONCILE });
     }
     return integrationBody(app.db, request.fcSession.orgId);
   });

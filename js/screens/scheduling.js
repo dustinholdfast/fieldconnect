@@ -192,6 +192,37 @@ function weekHtml(payload) {
   return html + '</div>';
 }
 
+function calendarHtml(connections) {
+  if (!connections) {
+    return '<div id="sched-calendar" class="fc-week-note">Loading calendar…</div>';
+  }
+  const connected = connections.filter((c) => c.status === 'connected');
+  let html = '<div id="sched-calendar" style="margin-top:12px">' +
+    '<div class="fc-section-title" style="margin-bottom:8px">Calendar connections</div>';
+  if (!connected.length) {
+    html += '<p class="text-muted" style="font-size:12px;margin:0 0 8px">Demo connect. A connected calendar blocks Fri 28 Aug 15:00–16:00 CT. No Google or Outlook secret is stored.</p>';
+  } else {
+    connected.forEach((c) => {
+      const label = c.provider === 'google' ? 'Google' : 'Outlook';
+      html += '<div style="display:flex;justify-content:space-between;align-items:center;gap:8px;font-size:12.5px;padding:4px 0">' +
+        '<span>' + esc(label) + ' · connected</span>' +
+        '<button class="btn btn-ghost" type="button" data-cal-disconnect="' + c.id + '" style="font-size:12px">Disconnect</button>' +
+        '</div>';
+    });
+    html += '<p class="text-muted" style="font-size:12px;margin:6px 0 0">Busy window: Fri 28 Aug 15:00–16:00 CT.</p>';
+  }
+  const hasGoogle = connected.some((c) => c.provider === 'google');
+  const hasOutlook = connected.some((c) => c.provider === 'outlook');
+  html += '<div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:8px">';
+  if (!hasGoogle) {
+    html += '<button class="btn btn-secondary" type="button" data-cal-connect="google" style="font-size:12px">Connect Google</button>';
+  }
+  if (!hasOutlook) {
+    html += '<button class="btn btn-secondary" type="button" data-cal-connect="outlook" style="font-size:12px">Connect Outlook</button>';
+  }
+  return html + '</div></div>';
+}
+
 function pickerHtml() {
   return '<div id="sched-picker" class="dialog-backdrop hidden" hidden>' +
     '<div class="dialog" role="dialog" aria-labelledby="sched-picker-title">' +
@@ -231,7 +262,7 @@ export function render(route) {
         '<span class="text-muted">Max per day</span><span>4</span></div>' +
         '<div class="text-muted" style="font-size:12px;margin-bottom:8px">Week slots · only free/busy exposed publicly</div>' +
         weekHtml(null) +
-        '<div class="fc-week-note">Calendar sync is Wave 2.</div>' +
+        calendarHtml(null) +
       '</aside>' +
     '</div>' +
     pickerHtml();
@@ -397,6 +428,8 @@ function paint(el, route, bundle) {
   }
   const week = el.querySelector('#sched-week');
   if (week) week.outerHTML = weekHtml(bundle.slots);
+  const cal = el.querySelector('#sched-calendar');
+  if (cal) cal.outerHTML = calendarHtml(bundle.connections || []);
 }
 
 export function mount(el, route) {
@@ -439,12 +472,13 @@ export function mount(el, route) {
     apiJson('/api/scheduling/summary', { signal }),
     apiJson('/api/scheduling/slots', { signal }),
     apiJson(apptUrl, { signal }),
+    apiJson('/api/calendar/connections', { signal }),
   ];
   if (selectedId) loads.push(apiJson('/api/appointments/' + selectedId, { silent: true, signal }));
 
   Promise.all(loads).then((results) => {
     if (signal.aborted) return;
-    const [sumRes, slotRes, listRes, oneRes] = results;
+    const [sumRes, slotRes, listRes, calRes, oneRes] = results;
     if (slotRes?.data?.durationMin) pickerDuration = slotRes.data.durationMin;
     let selected = null;
     let selectedMissing = false;
@@ -456,12 +490,42 @@ export function mount(el, route) {
       summary: sumRes?.ok ? sumRes.data : null,
       slots: slotRes?.ok ? slotRes.data : null,
       items: listRes?.ok ? (listRes.data.items || []) : null,
+      connections: calRes?.ok ? (calRes.data.items || []) : [],
       selected,
       selectedMissing,
     });
   }).catch(() => {});
 
+  async function reloadCalendarAndSlots() {
+    const [slotRes, calRes] = await Promise.all([
+      apiJson('/api/scheduling/slots', { signal }),
+      apiJson('/api/calendar/connections', { signal }),
+    ]);
+    if (signal.aborted) return;
+    const week = el.querySelector('#sched-week');
+    if (week && slotRes.ok) week.outerHTML = weekHtml(slotRes.data);
+    const cal = el.querySelector('#sched-calendar');
+    if (cal) cal.outerHTML = calendarHtml(calRes.ok ? (calRes.data.items || []) : []);
+  }
+
   el.addEventListener('click', (e) => {
+    const connect = e.target.closest('[data-cal-connect]');
+    if (connect) {
+      apiJson('/api/calendar/connections', {
+        method: 'POST',
+        body: { provider: connect.dataset.calConnect },
+        signal,
+      }).then(() => reloadCalendarAndSlots()).catch(() => {});
+      return;
+    }
+    const disconnect = e.target.closest('[data-cal-disconnect]');
+    if (disconnect) {
+      apiJson('/api/calendar/connections/' + disconnect.dataset.calDisconnect, {
+        method: 'DELETE',
+        signal,
+      }).then(() => reloadCalendarAndSlots()).catch(() => {});
+      return;
+    }
     if (e.target.id === 'sched-picker' || e.target.closest('#sched-picker-cancel')) {
       closePicker(el);
       return;

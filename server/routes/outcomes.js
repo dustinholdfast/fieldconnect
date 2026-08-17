@@ -1,6 +1,7 @@
 import { write as writeAudit } from '../audit.js';
 import { nowIso } from '../clock.js';
 import { withOrg } from '../db.js';
+import { enrollIfNeeded } from '../journeys/engine.js';
 import { assignJourney } from '../../shared/outcome/assignJourney.js';
 import { validateOutcome } from '../../shared/outcome/validate.js';
 
@@ -487,6 +488,14 @@ export async function registerOutcomeRoutes(app) {
     });
 
     const response = apply();
+    if (response?.outcome?.journeyKey) {
+      enrollIfNeeded(app.db, {
+        orgId: session.orgId,
+        personId: appt.person_id,
+        journeyKey: response.outcome.journeyKey,
+        branch: body.objection || null,
+      });
+    }
     return reply.code(201).send(response);
   });
 }

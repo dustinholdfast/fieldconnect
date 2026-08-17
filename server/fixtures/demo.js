@@ -710,6 +710,50 @@ export async function seedDemo(db) {
 
     seedRecruitment(db, twin, createdAt);
 
+    const whitfield = db.prepare(`
+      SELECT id FROM users WHERE org_id = ? AND display_name = 'D. Whitfield'
+    `).get(twin);
+    if (whitfield) {
+      const fsmMods = db.prepare(`
+        SELECT id FROM training_modules WHERE org_id = ? AND track = 'FSM'
+      `).all(twin);
+      for (const mod of fsmMods) {
+        db.prepare(`
+          INSERT INTO training_progress (org_id, user_id, module_id, progress_pct, status, updated_at)
+          SELECT ?, ?, ?, 100, 'complete', ?
+           WHERE NOT EXISTS (
+             SELECT 1 FROM training_progress
+              WHERE org_id = ? AND user_id = ? AND module_id = ?
+           )
+        `).run(twin, whitfield.id, mod.id, createdAt, twin, whitfield.id, mod.id);
+      }
+      if (!db.prepare(`
+        SELECT id FROM signoffs WHERE org_id = ? AND user_id = ? AND track = 'FSM'
+      `).get(twin, whitfield.id)) {
+        const supervisor = db.prepare(`
+          SELECT id FROM users WHERE org_id = ? AND role = 'manager' LIMIT 1
+        `).get(twin);
+        db.prepare(`
+          INSERT INTO signoffs (org_id, user_id, track, supervisor_id, signed_at)
+          VALUES (?, ?, 'FSM', ?, ?)
+        `).run(twin, whitfield.id, supervisor?.id || null, createdAt);
+      }
+    }
+
+    const elenaStory = db.prepare(`
+      SELECT id FROM stories WHERE org_id = ? AND contributor = 'Elena Duarte'
+    `).get(twin);
+    if (elenaStory && db.prepare(`
+      SELECT COUNT(*) AS c FROM story_consents WHERE org_id = ? AND story_id = ?
+    `).get(twin, elenaStory.id).c === 0) {
+      for (const channel of ['newsletter', 'social']) {
+        db.prepare(`
+          INSERT INTO story_consents (org_id, story_id, channel, granted, granted_at)
+          VALUES (?, ?, ?, 1, ?)
+        `).run(twin, elenaStory.id, channel, createdAt);
+      }
+    }
+
     db.prepare(`
       INSERT INTO org_memberships (user_id, org_id, role)
       SELECT u.id, u.org_id, u.role FROM users u

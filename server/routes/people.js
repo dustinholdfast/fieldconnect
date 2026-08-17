@@ -1,5 +1,6 @@
 import { randomBytes } from 'node:crypto';
 import { write as writeAudit } from '../audit.js';
+import { assertRoutingAllowed } from '../training/gates.js';
 import { now, nowIso, shiftIso } from '../clock.js';
 import { withOrg } from '../db.js';
 import { mergePeople } from '../people/merge.js';
@@ -724,15 +725,20 @@ export async function registerPeopleRoutes(app) {
     if (!person) return sendError(reply, 404, 'not_found');
     // Missing followup consent does not block send-link; only global suppression does.
     if (person.suppressed) return sendError(reply, 409, 'suppressed');
+    const extras = personExtras(org, id);
+    const fsmUserId = session.role === 'fsm'
+      ? session.userId
+      : extras.fsmUserId;
+    if (fsmUserId) {
+      const gated = assertRoutingAllowed(app.db, session.orgId, fsmUserId);
+      if (gated) return sendError(reply, 409, gated.code, { message: gated.message, gate: gated.gate });
+    }
     const body = stripOrg(request.body);
     const at = nowIso(app.db);
     const startAt = typeof body.startAt === 'string' && body.startAt
       ? body.startAt
       : shiftIso(at, 12 * 60 * 60 * 1000);
-    const extras = personExtras(org, id);
-    const fsmUserId = session.role === 'fsm'
-      ? session.userId
-      : (extras.fsmUserId || session.userId);
+    const offerFsmId = fsmUserId || session.userId;
     const token = randomBytes(32).toString('base64url');
     const info = org.run(
       `INSERT INTO appointments (
@@ -741,7 +747,7 @@ export async function registerPeopleRoutes(app) {
        ) VALUES (?, ?, ?, ?, ?, ?, 45, 'Offered', ?, 'Link expires in 2 d', ?)`,
       [
         id,
-        fsmUserId,
+        offerFsmId,
         extras.eventId,
         startAt,
         session.orgTimezone || 'America/Chicago',
