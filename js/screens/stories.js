@@ -38,7 +38,8 @@ function boardHtml(stories) {
     '<div style="padding:6px 0;border-bottom:1px solid var(--color-divider)">Social (SCN groups) — signed 12 Aug</div>' +
     '<div style="padding:6px 0;border-bottom:1px solid var(--color-divider)">Training examples — pending</div>' +
     '<div style="padding:6px 0">Public website — withdrawn 3 Sep</div></div>' +
-    '<p class="text-muted" style="font-size:12px;margin-top:16px">Repurposing destinations: recruitment funnel, newsletter, social, training.</p></aside></div>';
+    '<p class="text-muted" style="font-size:12px;margin-top:16px">Repurposing destinations: recruitment funnel, newsletter, social, training.</p>' +
+    '<p class="text-muted" style="font-size:12px;margin-top:12px">Consent enforcement and unpublish on withdrawal are Wave 2. Published is not gated in Pilot.</p></aside></div>';
   return html;
 }
 

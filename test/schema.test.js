@@ -33,6 +33,16 @@ const REQUIRED_TABLES = [
   'stories',
   'training_modules',
   'schema_migrations',
+  'enrollments',
+  'outbound_messages',
+  'calendar_connections',
+  'training_progress',
+  'signoffs',
+  'story_consents',
+  'candidates',
+  'orientation_sessions',
+  'org_memberships',
+  'public_pages',
 ];
 
 function tableNames(db) {
@@ -52,14 +62,14 @@ test('migrations apply twice idempotently and create required tables', () => {
     db.prepare("SELECT name FROM sqlite_master WHERE type = 'index' AND name = 'idx_people_org_email_live'").get(),
   );
   const applied = db.prepare('SELECT name FROM schema_migrations ORDER BY name').all().map((r) => r.name);
-  assert.deepEqual(applied, ['001_pilot.sql']);
+  assert.deepEqual(applied, ['001_pilot.sql', '002_wave2_wave3.sql']);
   db.close();
 
   const again = openDatabase(dir);
   const second = tableNames(again);
   assert.deepEqual([...second].sort(), [...first].sort());
   const appliedAgain = again.prepare('SELECT name FROM schema_migrations ORDER BY name').all().map((r) => r.name);
-  assert.deepEqual(appliedAgain, ['001_pilot.sql']);
+  assert.deepEqual(appliedAgain, ['001_pilot.sql', '002_wave2_wave3.sql']);
   again.close();
   rmSync(dir, { recursive: true, force: true });
 });

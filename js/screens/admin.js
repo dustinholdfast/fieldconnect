@@ -28,7 +28,7 @@ function fmtNum(n) {
 
 function orgsHtml(orgs) {
   let html = '<h4 style="margin-bottom:8px">Organizations</h4>' +
-    '<p class="text-muted" style="font-size:12.5px;margin:0 0 12px">Loaded from GET /api/orgs — the one cross-org metadata read (id, slug, name, wave, status, counts, map). It does not return people, emails, or appointments.</p>';
+    '<p class="text-muted" style="font-size:12.5px;margin:0 0 12px">Loaded from GET /api/orgs — the one cross-org metadata read (id, slug, name, wave, status, counts, map). It does not return people, emails, or appointments. Multi-org switcher is Wave 3.</p>';
   if (!orgs) {
     return html + emptyPanel('Loading organizations…');
   }
@@ -43,9 +43,21 @@ function orgsHtml(orgs) {
   return html + '</tbody></table>';
 }
 
+function laterWavesHtml() {
+  return '<div class="fc-panel" style="margin-top:24px"><div class="fc-section-title">Later waves</div>' +
+    '<p class="text-muted" style="font-size:12.5px;margin:10px 0 0">These controls stay disabled until their wave. This screen does not implement them.</p>' +
+    '<ul class="text-muted" style="font-size:12.5px;margin:10px 0 0;padding-left:18px">' +
+    '<li>Multi-org switcher — Wave 3</li>' +
+    '<li>Executive (read-only) login — Wave 3</li>' +
+    '<li>Public registration and booking pages — Wave 3</li>' +
+    '<li>Calendar OAuth (Google / Outlook) — Wave 2</li>' +
+    '<li>MetaPulse Level 2 API adapter and Level 3 nightly reconciliation — Wave 2</li>' +
+    '</ul></div>';
+}
+
 function rolesHtml() {
   let html = '<h4 style="margin-bottom:12px">Roles and permissions</h4>' +
-    '<p class="text-muted" style="font-size:12.5px;margin:0 0 12px">Documentation of hats. Extra roles are not Pilot login targets.</p>' +
+    '<p class="text-muted" style="font-size:12.5px;margin:0 0 12px">Documentation of hats. Extra roles are not Pilot login targets. The executive role is Wave 3.</p>' +
     '<table class="table" style="width:100%;font-size:13px;margin-bottom:28px"><thead><tr>' +
     '<th>Role</th><th>Scope</th><th>Key restriction</th></tr></thead><tbody>';
   ROLES_TABLE.forEach((r) => {
@@ -65,7 +77,7 @@ function integrationHtml(integration) {
     '<div style="font-size:13px;margin-top:12px">' +
     '<div style="padding:8px 0;border-bottom:1px solid var(--color-divider)">Level 1 — File exchange <span style="float:right;color:' + OK + '">' + esc(level1Label(integration)) + '</span></div>' +
     '<div style="padding:8px 0;border-bottom:1px solid var(--color-divider)">Level 2 — API adapter <span style="float:right;color:' + WARN + '">Wave 2 — disabled</span></div>' +
-    '<div style="padding:8px 0;border-bottom:1px solid var(--color-divider)">Level 3 — Nightly reconciliation (02:00 CT)</div>' +
+    '<div style="padding:8px 0;border-bottom:1px solid var(--color-divider)">Level 3 — Nightly reconciliation (02:00 CT) <span style="float:right;color:' + WARN + '">Wave 2 — paused</span></div>' +
     '<div style="padding:8px 0">Least-privilege API user · credentials owned by the non-profit</div></div>' +
     '<div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:14px;align-items:center">' +
     '<button class="btn btn-primary" id="export-l1" type="button"' + (l1on ? '' : ' disabled') + '>Export now</button>' +
@@ -116,7 +128,7 @@ export function render() {
     '<div style="display:grid;grid-template-columns:1fr 1fr;gap:24px">' +
     integrationHtml(null) +
     lastExportHtml(null, null) + auditHtml(null) +
-    '</div>';
+    '</div>' + laterWavesHtml();
 }
 
 function setNote(el, message, kind) {
@@ -136,7 +148,7 @@ function paint(el, bundle) {
     '<div style="display:grid;grid-template-columns:1fr 1fr;gap:24px">' +
     integrationHtml(bundle.integration) +
     lastExportHtml(bundle.integration, bundle.exports) + auditHtml(bundle.audit) +
-    '</div>';
+    '</div>' + laterWavesHtml();
   el.innerHTML = html;
 }
 

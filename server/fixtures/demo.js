@@ -18,7 +18,14 @@ export const DEMO_CLOCK = '2026-08-27T12:00:00-05:00';
 export const DEMO_TODAY = '2026-08-27';
 export const DEMO_TOMORROW = '2026-08-28';
 
-// Recruitment tables land in PR 13. One fixture function — not a second journey seed.
+const RECRUIT_STAGES = [
+  'Prospect', 'Interested', 'Orient. registered', 'Orient. attended',
+  'Qualification', 'Activated', 'First activity', 'Retained',
+];
+
+const MONTH_ABBR = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+
+// One fixture function — not a second journey seed.
 export function recruitmentBoard() {
   return {
     stats: [
@@ -42,6 +49,88 @@ export function recruitmentBoard() {
       { session: '5 Aug — Responsibilities & support', registered: 19, attended: 15, qualified: 11, activated: 7 },
       { session: '22 Jul — Path to activation', registered: 24, attended: 17, qualified: 12, activated: 8 },
     ],
+  };
+}
+
+function parseWebinarSession(label) {
+  const m = String(label).match(/^(\d{1,2}) (\w+) — (.+)$/);
+  if (!m) return { title: label, sessionOn: DEMO_TODAY };
+  const month = MONTHS[m[2]] || '08';
+  return { title: m[3], sessionOn: `2026-${month}-${pad2(m[1])}` };
+}
+
+function formatWebinarSession(sessionOn, title) {
+  const m = String(sessionOn).match(/^(\d{4})-(\d{2})-(\d{2})/);
+  if (!m) return title;
+  return `${Number(m[3])} ${MONTH_ABBR[Number(m[2]) - 1]} — ${title}`;
+}
+
+function pctLabel(num, den) {
+  if (!den) return '—';
+  return `${Math.round((num / den) * 100)}%`;
+}
+
+export function seedRecruitment(db, orgId, createdAt) {
+  if (db.prepare('SELECT COUNT(*) AS c FROM candidates WHERE org_id = ?').get(orgId).c === 0) {
+    for (const col of recruitmentBoard().columns) {
+      for (const cand of col.candidates) {
+        db.prepare(`
+          INSERT INTO candidates (org_id, name, source, stage, created_at)
+          VALUES (?, ?, ?, ?, ?)
+        `).run(orgId, cand.name, cand.source, col.name, createdAt);
+      }
+    }
+  }
+  if (db.prepare('SELECT COUNT(*) AS c FROM orientation_sessions WHERE org_id = ?').get(orgId).c === 0) {
+    for (const w of recruitmentBoard().webinars) {
+      const { title, sessionOn } = parseWebinarSession(w.session);
+      db.prepare(`
+        INSERT INTO orientation_sessions (
+          org_id, title, session_on, registered, attended, qualified, activated
+        ) VALUES (?, ?, ?, ?, ?, ?, ?)
+      `).run(orgId, title, sessionOn, w.registered, w.attended, w.qualified, w.activated);
+    }
+  }
+}
+
+export function recruitmentBoardFromDb(db, orgId) {
+  const rows = db.prepare(`
+    SELECT name, source, stage FROM candidates WHERE org_id = ? ORDER BY id ASC
+  `).all(orgId);
+  const columns = RECRUIT_STAGES.map((name) => {
+    const candidates = rows
+      .filter((r) => r.stage === name)
+      .map((r) => ({ name: r.name, source: r.source }));
+    return { name, count: candidates.length, candidates };
+  });
+  const sessions = db.prepare(`
+    SELECT title, session_on, registered, attended, qualified, activated
+      FROM orientation_sessions WHERE org_id = ?
+     ORDER BY session_on DESC
+  `).all(orgId);
+  const webinars = sessions.map((s) => ({
+    session: formatWebinarSession(s.session_on, s.title),
+    registered: s.registered,
+    attended: s.attended,
+    qualified: s.qualified,
+    activated: s.activated,
+  }));
+  if (rows.length === 0 && sessions.length === 0) {
+    return { stats: [], columns: [], webinars: [] };
+  }
+  const total = rows.length;
+  const registered = sessions.reduce((n, s) => n + Number(s.registered || 0), 0);
+  const attended = sessions.reduce((n, s) => n + Number(s.attended || 0), 0);
+  const activated = sessions.reduce((n, s) => n + Number(s.activated || 0), 0);
+  return {
+    stats: [
+      { label: 'Candidates in funnel', value: String(total), note: 'read-only board' },
+      { label: 'Orientation attendance', value: pctLabel(attended, registered), note: 'of registered' },
+      { label: 'Activation rate', value: pctLabel(activated, attended), note: 'of orientation attendees' },
+      { label: 'Median time to first activity', value: '—', note: 'Wave 3' },
+    ],
+    columns,
+    webinars,
   };
 }
 
@@ -617,6 +706,27 @@ export async function seedDemo(db) {
           min_notice_hours, max_per_day, weekday_mask
         ) VALUES (?, 'America/Chicago', '09:00', '19:00', 45, 15, 12, 4, 126)
       `).run(twin);
+    }
+
+    seedRecruitment(db, twin, createdAt);
+
+    db.prepare(`
+      INSERT INTO org_memberships (user_id, org_id, role)
+      SELECT u.id, u.org_id, u.role FROM users u
+       WHERE u.org_id = ?
+         AND NOT EXISTS (
+           SELECT 1 FROM org_memberships m
+            WHERE m.user_id = u.id AND m.org_id = u.org_id
+         )
+    `).run(twin);
+
+    if (!db.prepare(`
+      SELECT id FROM jobs WHERE org_id = ? AND kind = 'metapulse_reconcile' LIMIT 1
+    `).get(twin)) {
+      db.prepare(`
+        INSERT INTO jobs (org_id, kind, status, payload_json, run_after, attempts, created_at)
+        VALUES (?, 'metapulse_reconcile', 'paused', '{}', '2026-08-28T07:00:00.000Z', 0, ?)
+      `).run(twin, createdAt);
     }
   });
 

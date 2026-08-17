@@ -35,7 +35,8 @@ function boardHtml(board) {
       '<td class="fc-tnum">' + esc(w.qualified) + '</td>' +
       '<td class="fc-tnum">' + esc(w.activated) + '</td></tr>';
   });
-  html += '</tbody></table>';
+  html += '</tbody></table>' +
+    '<p class="text-muted" style="font-size:12.5px;margin-top:16px">Drag and stage advance are Wave 3. This board is read-only.</p>';
   return html;
 }
 

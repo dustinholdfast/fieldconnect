@@ -68,7 +68,7 @@ function boardHtml(bundle, route) {
     html += '<div style="display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid var(--color-divider);font-size:13px">' +
       '<span class="text-muted">' + esc(q[0]) + '</span><span style="color:' + q[2] + '">' + esc(q[1]) + '</span></div>';
   });
-  html += '<p class="text-muted" style="font-size:12.5px;margin-top:16px">Appointment routing is withheld until the FSM track is complete and signed off.</p></aside></div>';
+  html += '<p class="text-muted" style="font-size:12.5px;margin-top:16px">Appointment routing is withheld until the FSM track is complete and signed off. Training gates and supervisor sign-off are Wave 2.</p></aside></div>';
   return html;
 }
 
