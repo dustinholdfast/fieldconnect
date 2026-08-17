@@ -281,8 +281,16 @@ export async function registerSchedulingRoutes(app) {
     let items = rows.map((row) => toAppointmentDto(row, {
       needsOutcome: computeNeedsOutcome(app.db, row, tz, nowDate, today, hasOutcome.has(row.id)),
     }));
-    if (filter === 'needs_outcome' || filter === 'outcome_overdue') {
+    if (filter === 'needs_outcome') {
       items = items.filter((item) => item.needsOutcome);
+    } else if (filter === 'outcome_overdue') {
+      const cutoff = nowDate.getTime() - 48 * 60 * 60 * 1000;
+      const overdue = new Set(['Confirmed', 'Booked', 'Reminder due', 'Partial']);
+      items = items.filter((item) => (
+        overdue.has(item.status)
+        && !hasOutcome.has(item.id)
+        && Date.parse(item.endAt) < cutoff
+      ));
     } else if (filter === 'unconfirmed') {
       const horizon = nowDate.getTime() + 24 * 60 * 60 * 1000;
       items = items.filter((item) => {

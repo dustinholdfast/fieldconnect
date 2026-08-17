@@ -1,75 +1,124 @@
-import { ACCENT, esc } from '../html.js';
+import { apiJson } from '../api.js';
+import { ACCENT, emptyPanel, esc } from '../html.js';
 
-export function render() {
-  const kpis = [
-    ['Registered', '412', '+38 this week'],
-    ['Attended', '287', '70% of registered'],
-    ['Interested', '134', '47% of attendees'],
-    ['Completed', '96', '81% of booked'],
-    ['Books sold', '41', '43% of completed'],
-    ['DN Seminars', '18', '19% of completed']
-  ];
-  const funnel = [
-    ['Invited (Div 6 + Meetup)', 1840, '#d7d3d3'],
-    ['Registered', 412, '#e1ad66'],
-    ['Attended', 287, '#e1ad66'],
-    ['Expressed interest', 134, '#c28d41'],
-    ['Booked', 118, '#c28d41'],
-    ['Completed', 96, ACCENT],
-    ['Book sold', 41, '#7d5411'],
-    ['DN Seminar sold', 18, '#7d5411']
-  ];
-  const fsmRows = [
-    ['D. Whitfield', 34, 6, 15, 7],
-    ['S. Lindgren', 28, 3, 13, 6],
-    ['J. Okonjo', 17, 5, 7, 3],
-    ['R. Marchetti', 11, 4, 4, 1],
-    ['P. Nakamura', 6, 4, 2, 1]
-  ];
-  const attention = [
-    ['Outcome forms overdue > 48 h', '7'],
-    ['Follow-up tasks past due', '12'],
-    ['Appointments unconfirmed within 24 h', '4'],
-    ['Contacts with no lawful basis recorded', '2']
-  ];
+const FUNNEL_COLORS = {
+  invited: '#d7d3d3',
+  registered: '#e1ad66',
+  attended: '#e1ad66',
+  interested: '#c28d41',
+  booked: '#c28d41',
+  completed: ACCENT,
+  book_sold: '#7d5411',
+  seminar_sold: '#7d5411',
+};
 
+let abort = null;
+
+function kpiHtml(kpis) {
+  const rows = kpis || [
+    { key: 'registered', label: 'Registered', value: '—', delta: '' },
+    { key: 'attended', label: 'Attended', value: '—', delta: '' },
+    { key: 'interested', label: 'Interested', value: '—', delta: '' },
+    { key: 'completed', label: 'Completed', value: '—', delta: '' },
+    { key: 'books', label: 'Books sold', value: '—', delta: '' },
+    { key: 'seminars', label: 'DN Seminars', value: '—', delta: '' },
+  ];
   let html = '<div class="fc-kpi-strip">';
-  kpis.forEach(k => {
-    html += '<div class="fc-kpi-cell"><div class="fc-kpi-label">' + esc(k[0]) +
-      '</div><div class="fc-kpi-value fc-tnum">' + esc(k[1]) +
-      '</div><div class="fc-kpi-delta">' + esc(k[2]) + '</div></div>';
+  rows.forEach((k) => {
+    const value = typeof k.value === 'number' ? k.value.toLocaleString() : String(k.value ?? '—');
+    html += '<div class="fc-kpi-cell"><div class="fc-kpi-label">' + esc(k.label) +
+      '</div><div class="fc-kpi-value fc-tnum">' + esc(value) +
+      '</div><div class="fc-kpi-delta">' + esc(k.delta || '') + '</div></div>';
   });
-  html += '</div><div class="fc-two-col-wide"><section><h4 style="margin-bottom:3px">Lifecycle funnel</h4>' +
+  return html + '</div>';
+}
+
+function funnelHtml(funnel) {
+  const rows = funnel || [];
+  let html = '<section><h4 style="margin-bottom:3px">Lifecycle funnel</h4>' +
     '<p class="text-muted" style="font-size:12.5px;margin-bottom:12px">From invitation through product result</p>';
-  funnel.forEach(f => {
-    const w = Math.max(2, Math.round(f[1] / 1840 * 100));
-    html += '<div class="fc-funnel-row"><span>' + esc(f[0]) + '</span>' +
-      '<div class="fc-bar-track"><div class="fc-bar-fill" style="width:' + w + '%;background:' + f[2] + '"></div></div>' +
-      '<span class="fc-tnum" style="text-align:right">' + f[1].toLocaleString() + '</span>' +
+  if (!funnel) {
+    return html + emptyPanel('Loading funnel…') + '</section>';
+  }
+  const max = Math.max(1, ...rows.map((f) => Number(f.value) || 0));
+  rows.forEach((f) => {
+    const value = Number(f.value) || 0;
+    const w = Math.max(2, Math.round(value / max * 100));
+    const color = FUNNEL_COLORS[f.key] || ACCENT;
+    html += '<div class="fc-funnel-row"><span>' + esc(f.label) + '</span>' +
+      '<div class="fc-bar-track"><div class="fc-bar-fill" style="width:' + w + '%;background:' + color + '"></div></div>' +
+      '<span class="fc-tnum" style="text-align:right">' + value.toLocaleString() + '</span>' +
       '<span class="fc-tnum text-muted" style="text-align:right">' + w + '%</span></div>';
   });
-  html += '</section><section><h4 style="margin-bottom:3px">Conversion by Field Staff Member</h4>' +
+  return html + '</section>';
+}
+
+function conversionHtml(byFsm) {
+  let html = '<section><h4 style="margin-bottom:3px">Conversion by Field Staff Member</h4>' +
     '<p class="text-muted" style="font-size:12.5px">Completed interviews and product results</p>' +
     '<table class="table" style="width:100%;margin-top:14px;font-size:13px"><thead><tr>' +
     '<th style="text-align:left">FSM</th><th style="text-align:right">Done</th><th style="text-align:right">No-show</th>' +
     '<th style="text-align:right">Books</th><th style="text-align:right">DN Sem.</th></tr></thead><tbody>';
-  fsmRows.forEach(r => {
-    html += '<tr class="fc-row"><td>' + esc(r[0]) + '</td>' +
-      '<td class="fc-tnum" style="text-align:right">' + r[1] + '</td>' +
-      '<td class="fc-tnum" style="text-align:right">' + r[2] + '</td>' +
-      '<td class="fc-tnum" style="text-align:right">' + r[3] + '</td>' +
-      '<td class="fc-tnum" style="text-align:right">' + r[4] + '</td></tr>';
+  (byFsm || []).forEach((r) => {
+    html += '<tr class="fc-row"><td>' + esc(r.name) + '</td>' +
+      '<td class="fc-tnum" style="text-align:right">' + (r.done ?? 0) + '</td>' +
+      '<td class="fc-tnum" style="text-align:right">' + (r.noShow ?? 0) + '</td>' +
+      '<td class="fc-tnum" style="text-align:right">' + (r.books ?? 0) + '</td>' +
+      '<td class="fc-tnum" style="text-align:right">' + (r.seminars ?? 0) + '</td></tr>';
   });
-  html += '</tbody></table><div class="fc-panel" style="margin-top:22px">' +
-    '<div class="fc-section-title">Needs attention</div>';
-  attention.forEach(a => {
-    html += '<div style="display:flex;justify-content:space-between;gap:12px;padding:9px 0;border-bottom:1px solid var(--color-divider);font-size:13px">' +
-      '<span>' + esc(a[0]) + '</span><span class="fc-tnum text-muted">' + esc(a[1]) + '</span></div>';
-  });
-  html += '</div></section></div>';
-  return html;
+  if (!byFsm) {
+    html += '<tr class="fc-row"><td colspan="5" class="text-muted">Loading…</td></tr>';
+  }
+  return html + '</tbody></table>';
 }
 
-export function mount() {}
+function attentionHtml(items) {
+  let html = '<div class="fc-panel" style="margin-top:22px">' +
+    '<div class="fc-section-title">Needs attention</div>';
+  if (!items) {
+    html += '<p class="text-muted" style="font-size:13px;margin:10px 0 0">Loading…</p>';
+  } else if (items.length === 0) {
+    html += '<p class="text-muted" style="font-size:13px;margin:10px 0 0">Nothing needs attention</p>';
+  } else {
+    items.forEach((a) => {
+      html += '<a class="fc-attention-row" href="' + esc(a.href) + '">' +
+        '<span>' + esc(a.label) + '</span>' +
+        '<span class="fc-tnum text-muted">' + esc(String(a.count)) + '</span></a>';
+    });
+  }
+  return html + '</div>';
+}
 
-export function unmount() {}
+function bodyHtml(dash, attn) {
+  return kpiHtml(dash?.kpis) +
+    '<div class="fc-two-col-wide">' +
+      funnelHtml(dash?.funnel) +
+      '<section>' + conversionHtml(dash?.byFsm) + attentionHtml(attn?.items) + '</section>' +
+    '</div>';
+}
+
+export function render() {
+  return '<div id="dash-root">' + bodyHtml(null, null) + '</div>';
+}
+
+function paint(el, dash, attn) {
+  const root = el.querySelector('#dash-root') || el;
+  root.innerHTML = bodyHtml(dash, attn);
+}
+
+export function mount(el) {
+  abort = new AbortController();
+  const signal = abort.signal;
+  Promise.all([
+    apiJson('/api/dashboard', { signal }),
+    apiJson('/api/attention', { signal }),
+  ]).then(([dashRes, attnRes]) => {
+    if (signal.aborted) return;
+    paint(el, dashRes?.ok ? dashRes.data : null, attnRes?.ok ? attnRes.data : { items: [] });
+  }).catch(() => {});
+}
+
+export function unmount() {
+  abort?.abort();
+  abort = null;
+}

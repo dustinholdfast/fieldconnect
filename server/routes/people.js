@@ -180,7 +180,7 @@ function listFsms(org) {
   );
 }
 
-function buildListQuery(session, query) {
+function buildListQuery(session, query, nowAt) {
   const clauses = ['p.org_id = ?', 'p.merged_into_id IS NULL'];
   const params = [];
 
@@ -231,6 +231,19 @@ function buildListQuery(session, query) {
   if (ruin) {
     clauses.push('lower(coalesce(p.ruin_category, \'\')) LIKE ?');
     params.push(`%${ruin.toLowerCase()}%`);
+  }
+
+  const filter = typeof query.filter === 'string' ? query.filter.trim() : '';
+  if (filter === 'no_lawful_basis') {
+    clauses.push('p.suppressed = 0 AND p.lawful_basis IS NULL');
+  } else if (filter === 'followup_overdue') {
+    clauses.push(`EXISTS (
+      SELECT 1 FROM assignments fu
+       WHERE fu.org_id = p.org_id AND fu.person_id = p.id
+         AND fu.kind = 'follow_up' AND fu.status = 'open'
+         AND fu.due_at IS NOT NULL AND fu.due_at < ?
+    )`);
+    params.push(nowAt);
   }
 
   const q = typeof query.q === 'string' ? query.q.trim() : '';
@@ -444,7 +457,7 @@ export async function registerPeopleRoutes(app) {
   app.get('/api/people', async (request) => {
     const session = request.fcSession;
     const org = withOrg(app.db, session.orgId);
-    const { where, params } = buildListQuery(session, request.query || {});
+    const { where, params } = buildListQuery(session, request.query || {}, nowIso(app.db));
     const limit = clampLimit(request.query?.limit);
     const offset = clampOffset(request.query?.offset);
     const total = org.get(

@@ -431,10 +431,14 @@ export function mount(el, route) {
   }
 
   const selectedId = route?.params?.appointmentId ? Number(route.params.appointmentId) : null;
+  const filter = route?.query?.filter;
+  const apptUrl = filter
+    ? '/api/appointments?filter=' + encodeURIComponent(filter)
+    : '/api/appointments';
   const loads = [
     apiJson('/api/scheduling/summary', { signal }),
     apiJson('/api/scheduling/slots', { signal }),
-    apiJson('/api/appointments', { signal }),
+    apiJson(apptUrl, { signal }),
   ];
   if (selectedId) loads.push(apiJson('/api/appointments/' + selectedId, { silent: true, signal }));
 

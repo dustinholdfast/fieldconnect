@@ -14,6 +14,7 @@ import { registerAuthRoutes, registerMetrics } from './routes/auth.js';
 import { registerImportRoutes } from './routes/imports.js';
 import { registerPeopleRoutes } from './routes/people.js';
 import { registerOutcomeRoutes } from './routes/outcomes.js';
+import { registerDashboardRoutes } from './routes/dashboard.js';
 import { registerSchedulingRoutes } from './routes/scheduling.js';
 
 const rootDir = join(dirname(fileURLToPath(import.meta.url)), '..');
@@ -78,6 +79,7 @@ export async function buildApp(opts = {}) {
   await registerSchedulingRoutes(app);
   await registerImportRoutes(app);
   await registerOutcomeRoutes(app);
+  await registerDashboardRoutes(app);
   registerMetrics(app);
 
   app.get('/manifest.webmanifest', async (_request, reply) => {

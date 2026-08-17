@@ -259,18 +259,20 @@ function paintRecord(el, route) {
   host.innerHTML = recordPanel(selectedPerson(route));
 }
 
-function peopleQuery() {
+function peopleQuery(route) {
   const params = new URLSearchParams();
   const q = state.crmQuery.trim();
   if (q) params.set('q', q);
   if (state.stageFilter && state.stageFilter !== 'All') params.set('stage', state.stageFilter);
+  const filter = route?.query?.filter;
+  if (filter) params.set('filter', filter);
   params.set('limit', '50');
   return '/api/people?' + params.toString();
 }
 
 async function loadList(el, route, signal) {
   try {
-    const { ok, data } = await apiJson(peopleQuery(), { silent: true, signal });
+    const { ok, data } = await apiJson(peopleQuery(route), { silent: true, signal });
     if (signal?.aborted) return;
     if (!ok || !data) return;
     setState({ crmPeople: data.items || [], crmTotal: data.total || 0, crmFsms: data.fsms || [] });
