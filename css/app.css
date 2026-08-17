@@ -77,6 +77,11 @@ html, body {
   border-left: 2px solid transparent;
   margin-bottom: 2px;
   user-select: none;
+  text-decoration: none;
+}
+
+a.fc-nav-item:visited {
+  color: #a49c92;
 }
 
 .fc-nav-item:hover {
@@ -84,7 +89,8 @@ html, body {
   color: #f1ece3;
 }
 
-.fc-nav-item.active {
+.fc-nav-item.active,
+.fc-nav-item[aria-current="page"] {
   background: rgba(182, 130, 53, 0.20);
   color: #f1ece3;
   border-left-color: #b68235;
@@ -359,11 +365,14 @@ html, body {
 
 /* Journey cards */
 .fc-journey-card {
+  display: block;
   border: 1px solid var(--color-divider);
   border-radius: 4px;
   padding: 14px 16px;
   cursor: pointer;
   margin-bottom: 8px;
+  text-decoration: none;
+  color: inherit;
 }
 
 .fc-journey-card.selected {
@@ -390,7 +399,12 @@ html, body {
   text-align: center;
   cursor: pointer;
   font-size: 13px;
+  font-family: inherit;
+  color: inherit;
+  background: transparent;
+  border: none;
   border-right: 1px solid var(--color-divider);
+  appearance: none;
 }
 
 .fc-step:last-child {
@@ -804,4 +818,59 @@ html, body {
 /* Ensure buttons look right */
 button.btn {
   font-family: var(--font-heading);
+}
+
+.fc-error-banner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 12px 16px;
+  margin-bottom: 18px;
+  border: 1px solid var(--bad);
+  border-radius: 4px;
+  background: color-mix(in srgb, var(--bad) 8%, transparent);
+  color: var(--bad);
+  font-size: 13.5px;
+}
+
+.fc-empty {
+  text-align: center;
+  padding: 36px 20px;
+  color: color-mix(in srgb, var(--color-text) 65%, transparent);
+}
+
+.fc-empty p {
+  margin: 0;
+}
+
+/* Phone-first outcome: hide sidebar, drop desktop min-width */
+.fc-root.fc-outcome-standalone {
+  min-width: 0;
+  min-height: 0;
+  display: block;
+}
+
+.fc-outcome-standalone .fc-sidebar {
+  display: none;
+}
+
+.fc-outcome-standalone .fc-two-col-outcome {
+  grid-template-columns: 1fr;
+}
+
+.fc-outcome-standalone .fc-header {
+  align-items: center;
+}
+
+@media (max-width: 720px) {
+  .fc-outcome-standalone .fc-header {
+    padding: 12px 16px;
+  }
+  .fc-outcome-standalone .fc-content {
+    padding: 12px 16px 40px;
+  }
+  .fc-outcome-standalone .fc-form-grid {
+    grid-template-columns: 1fr;
+  }
 }

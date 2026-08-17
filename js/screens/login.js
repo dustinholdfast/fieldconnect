@@ -1,5 +1,7 @@
 import { api, setCsrfToken } from '../api.js';
 
+let abort = null;
+
 export function render() {
   return (
     '<div class="fc-login">' +
@@ -21,7 +23,9 @@ export function render() {
   );
 }
 
-export function mount(el, { onSuccess } = {}) {
+export function mount(el, route, ctx = {}) {
+  const onSuccess = ctx.onSuccess || route?.onSuccess;
+  abort = new AbortController();
   const form = el.querySelector('#login-form');
   const errorEl = el.querySelector('#login-error');
   if (!form) return;
@@ -37,6 +41,7 @@ export function mount(el, { onSuccess } = {}) {
     try {
       res = await api('/api/auth/login', {
         method: 'POST',
+        silent: true,
         body: {
           email: String(data.get('email') || ''),
           password: String(data.get('password') || ''),
@@ -61,7 +66,12 @@ export function mount(el, { onSuccess } = {}) {
     const payload = await res.json();
     setCsrfToken(payload.csrfToken);
     onSuccess?.(payload);
-  });
+  }, { signal: abort.signal });
+}
+
+export function unmount() {
+  abort?.abort();
+  abort = null;
 }
 
 function showError(el, message) {
