@@ -803,53 +803,6 @@ export async function registerPeopleRoutes(app) {
     return { appointment: appointmentDto(org, row), offerUrl };
   });
 
-  app.patch('/api/appointments/:id', async (request, reply) => {
-    const session = request.fcSession;
-    const org = withOrg(app.db, session.orgId);
-    const id = Number(request.params.id);
-    const row = org.get(`SELECT * FROM appointments WHERE org_id = ? AND id = ?`, [id]);
-    if (!row) return sendError(reply, 404, 'not_found');
-    if (session.role === 'fsm' && row.fsm_user_id !== session.userId) {
-      return sendError(reply, 404, 'not_found');
-    }
-    const body = stripOrg(request.body);
-    const status = typeof body.status === 'string' ? body.status : '';
-    const allowed = row.status === 'Offered' && (status === 'Booked' || status === 'Cancelled');
-    if (!allowed) return sendError(reply, 409, 'conflict');
-    const actionDue = status === 'Booked' ? null : 'Cancelled';
-    app.db.prepare(
-      `UPDATE appointments SET status = ?, action_due = ? WHERE org_id = ? AND id = ?`,
-    ).run(status, actionDue, session.orgId, id);
-    if (status === 'Booked') {
-      app.db.prepare(
-        `UPDATE people SET stage = 'Scheduled', updated_at = ? WHERE org_id = ? AND id = ?`,
-      ).run(nowIso(app.db), session.orgId, row.person_id);
-    }
-    writeAudit(app.db, {
-      orgId: session.orgId,
-      actorUserId: session.userId,
-      action: 'appointment.update',
-      entityType: 'appointment',
-      entityId: id,
-      before: { status: row.status },
-      after: { status },
-    });
-    const next = org.get(`SELECT * FROM appointments WHERE org_id = ? AND id = ?`, [id]);
-    return { appointment: appointmentDto(org, next) };
-  });
-
-  app.get('/api/appointments', async (request, reply) => {
-    const session = request.fcSession;
-    const org = withOrg(app.db, session.orgId);
-    const token = typeof request.query?.offer === 'string' ? request.query.offer : '';
-    if (token) {
-      const row = loadAppointmentByToken(org, session, token);
-      if (!row) return sendError(reply, 404, 'not_found');
-      return offerPayload(org, session, row);
-    }
-    return { items: [] };
-  });
-
   app.get('/api/scheduling/offer/:token', async (request, reply) => {
     const session = request.fcSession;
     const org = withOrg(app.db, session.orgId);

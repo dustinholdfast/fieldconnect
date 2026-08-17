@@ -11,6 +11,7 @@ import { seedDemo } from './fixtures/demo.js';
 import { registerHealth } from './health.js';
 import { registerAuthRoutes, registerMetrics } from './routes/auth.js';
 import { registerPeopleRoutes } from './routes/people.js';
+import { registerSchedulingRoutes } from './routes/scheduling.js';
 
 const rootDir = join(dirname(fileURLToPath(import.meta.url)), '..');
 
@@ -64,6 +65,7 @@ export async function buildApp(opts = {}) {
   await registerHealth(app);
   await registerAuthRoutes(app);
   await registerPeopleRoutes(app);
+  await registerSchedulingRoutes(app);
   registerMetrics(app);
 
   for (const name of ['css', 'js', 'fonts', 'assets']) {

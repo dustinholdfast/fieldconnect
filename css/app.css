@@ -543,6 +543,27 @@ a.fc-nav-item:visited {
   margin-top: 12px;
 }
 
+.fc-week {
+  display: grid;
+  grid-template-columns: repeat(6, 1fr);
+  gap: 8px;
+  margin-top: 12px;
+}
+
+.fc-week-day {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 0;
+}
+
+.fc-week-head {
+  font-size: 12px;
+  font-weight: 600;
+  text-align: center;
+  padding-bottom: 4px;
+}
+
 .fc-slot {
   padding: 6px 4px;
   text-align: center;
@@ -552,10 +573,34 @@ a.fc-nav-item:visited {
   font-variant-numeric: tabular-nums;
 }
 
-.fc-slot.booked {
+button.fc-slot {
+  font-family: inherit;
+  color: inherit;
+  background: transparent;
+  width: 100%;
+  cursor: pointer;
+}
+
+.fc-slot.booked,
+.fc-slot[data-state="booked"] {
   border-color: var(--color-accent);
   background: color-mix(in srgb, #b68235 16%, transparent);
   color: var(--color-accent-700);
+}
+
+.fc-slot[data-state="blocked"] {
+  opacity: 0.45;
+  cursor: default;
+}
+
+.fc-slot[data-state="free"]:hover {
+  border-color: var(--color-accent);
+}
+
+.fc-week-note {
+  font-size: 12px;
+  margin-top: 10px;
+  color: color-mix(in srgb, var(--color-text) 55%, transparent);
 }
 
 /* Funnel bars */
